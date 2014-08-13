@@ -49,7 +49,7 @@ Triggers -> Axis Z/RZ (only when config.Left/RightTrigger.Axis is enabled)
 Buttons
 -------
 
-Buttons are mapped according to the following list:
+Input buttons are recognised according to the following list:
 
      1     DPAD_UP
      2     DPAD_DOWN
@@ -61,42 +61,17 @@ Buttons are mapped according to the following list:
      8     RIGHT_THUMB
      9     LEFT_SHOULDER
     10     RIGHT_SHOULDER
-    11     (unused)
-    12     (unused)
+    11     LEFT_TRIGGER
+    12     RIGHT_TRIGGER
     13     BUTTON_A
     14     BUTTON_B
     15     BUTTON_X
     16     BUTTON_Y
-    17     LEFT_TRIGGER pull
-    18     RIGHT_TRIGGER pull
-    19     LEFT_TRIGGER touch
-    20     RIGHT_TRIGGER touch
 
-When config.ShiftButtonIndex is nonzero, the following buttons are also used.
-They will be triggered then the specified button is pressed together with the
-shift button. Note that buttons in the other plane will be released whenever
-the state of the shift button changes.
+They are mapped according to elements in config.Buttons to output buttons.
 
-    21     DPAD_UP
-    22     DPAD_DOWN
-    23     DPAD_LEFT
-    24     DPAD_RIGHT
-    25     START
-    26     BACK
-    27     LEFT_THUMB
-    28     RIGHT_THUMB
-    29     LEFT_SHOULDER
-    30     RIGHT_SHOULDER
-    31     (unused)
-    32     (unused)
-    33     BUTTON_A
-    34     BUTTON_B
-    35     BUTTON_X
-    36     BUTTON_Y
-    37     LEFT_TRIGGER pull
-    38     RIGHT_TRIGGER pull
-    39     LEFT_TRIGGER touch
-    40     RIGHT_TRIGGER touch
+A maximum number of 128 output buttons are supported by [vJoy][], but most
+programs can recognise only 32 of them.
 
 Triggers may have two virtual buttons assigned to them based on how far they
 were pulled in. If any of the tresholds are greater than one, then the
@@ -114,12 +89,11 @@ Configuration
 Values in the configuration are integers (button indexes), boolean values (for flags) and
 floating point values usually in the range (0..1).
 
-`config.ShiftButtonIndex` specifies the index for the shift button. Useful values are
-between 0 and 20. Specify 0 to turn the shift button feature off.
+`config.UpdateMicros` update frequency in microseconds
 
-`config.ShiftButtonHide` hides the state of the shift button in the vJoy device.
+`config.TapDelayMicros` is the maximum time between taps for `Multi` buttons
 
-`config.DontShift` is a list of integers for buttons that should not be shifted.
+`config.KeepPushedMicros` specifies how long should a `Multi` button kept pressed
 
 `config.ThumbCircle` modifies the logic of reading thumbstick positions. Normally when the
 thumbstick is moved diagonally, the distinct X and Y axes cannot reach their extreme values.
@@ -157,10 +131,47 @@ Settings for triggers. These are maps with the following values:
 button will be set.
 
 `TouchTreshold` sets the threshold, above which the corresponding "touch"
-output button will be set.
+output button will be set. Currently unused.
 
 `Axis` enables the trigger into an axis.
 
 `TouchTreshold` should be smaller than `PullTreshold` to be of any use. If set to an equal
 or larger value than `PullThreshold` then the "touch" button in the output will never fire.
+
+--------------------------------------------------------------------------------
+
+`config.Buttons`
+
+Array of buttons that will appear in the output.
+
+`Output` is the output button index, ideally in the range 1-32. If the output button
+is not configured for the [vJoy][] device, this button setting will have no effect.
+
+`Sources` is an array of input buttons, they must be held together to have the button
+triggered. Normally only a single input is specified here, but more than one may be used
+if an input button is used as a shift button. 
+
+If any input button index appears in multiple `Source` blocks, they will be subjected
+to special handling. Eg. with
+
+`"Buttons":[
+	{"Output":1, "Sources": [13]},
+	{"Output":2, "Sources": [9, 13]},
+]`
+
+Output 1 will be fired only when input 13 is pressed, but 9 is not.
+
+`Multi` is used for multiple taps. Value of 2 means double-tap. The output will
+be triggered if the input button is pressed this many times in quick succession.
+
+virtual joystick
+----------------
+
+The output virtual joystick has the following controls:
+
+Left thumb: Joy_XAxis and Joy_YAxis
+Right thumb: Joy_RXAxis and Joy_RYAxis
+
+Buttons: Joy_1, Joy_2, ... Joy_32
+
 

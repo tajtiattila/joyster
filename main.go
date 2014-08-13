@@ -43,12 +43,9 @@ func main() {
 
 	var xs xinput.State
 	for {
-		pktno := xs.PacketNumber
 		xinput.GetState(0, &xs)
-		if pktno != xs.PacketNumber {
-			update(cfg, &xs.Gamepad, d)
-		}
-		time.Sleep(time.Millisecond)
+		update(cfg, &xs.Gamepad, d)
+		time.Sleep(time.Duration(cfg.UpdateMicros) * time.Microsecond)
 	}
 }
 
@@ -58,6 +55,12 @@ func abort(err error) {
 }
 
 func update(c *Config, gp *xinput.Gamepad, d *vjoy.Device) {
+	updateAxes(c, gp, d)
+	updateButtons(c, gp, d)
+	d.Update()
+}
+
+func updateAxes(c *Config, gp *xinput.Gamepad, d *vjoy.Device) {
 	var lt, rt thumbStick
 	lt.set(gp.ThumbLX, gp.ThumbLY)
 	rt.set(gp.ThumbRX, gp.ThumbRY)
@@ -75,42 +78,20 @@ func update(c *Config, gp *xinput.Gamepad, d *vjoy.Device) {
 	if c.RightTrigger.Axis {
 		d.Axis(vjoy.AxisRZ).Setuf(float32(gp.RightTrigger) / 255)
 	}
+}
 
+func updateButtons(c *Config, gp *xinput.Gamepad, d *vjoy.Device) {
 	btns := uint32(gp.Buttons)
-	if c.LeftTrigger.touch <= uint16(gp.LeftTrigger) {
-		if c.LeftTrigger.pull <= uint16(gp.LeftTrigger) {
-			btns |= 1 << 16
-		} else {
-			btns |= 1 << 17
-		}
+	if c.LeftTrigger.pull <= uint16(gp.LeftTrigger) {
+		btns |= 1 << 10
 	}
-	if c.RightTrigger.touch <= uint16(gp.RightTrigger) {
-		if c.RightTrigger.pull <= uint16(gp.RightTrigger) {
-			btns |= 1 << 18
-		} else {
-			btns |= 1 << 19
-		}
+	if c.RightTrigger.pull <= uint16(gp.RightTrigger) {
+		btns |= 1 << 11
 	}
-
-	shifted := (btns & c.shiftButtonMask) != 0
-	if shifted && c.ShiftButtonHide {
-		btns &= ^c.shiftButtonMask
+	for _, bc := range c.Buttons {
+		b := d.Button(bc.Output - 1)
+		b.Set(bc.handler.Handle((btns & bc.fmask) == bc.imask))
 	}
-	const nbtn = 20
-	for i := 0; i < nbtn; i++ {
-		mask := uint32(1 << uint(i))
-		val := (btns & mask) != 0
-		bu, bs := d.Button(i), d.Button(i+nbtn)
-		if !shifted || (mask&c.shiftableMask) == 0 {
-			bu.Set(val)
-			bs.Set(false)
-		} else {
-			bu.Set(false)
-			bs.Set(val)
-		}
-	}
-
-	d.Update()
 }
 
 type thumbStick struct {

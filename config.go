@@ -7,26 +7,24 @@ import (
 )
 
 type Config struct {
-	ShiftButtonIndex int
-	ShiftButtonHide  bool
-	DontShift        []uint32
-	ThumbCircle      bool
-	ThumbLX          *AxisConfig
-	ThumbLY          *AxisConfig
-	ThumbRX          *AxisConfig
-	ThumbRY          *AxisConfig
-	LeftTrigger      *TriggerConfig
-	RightTrigger     *TriggerConfig
+	UpdateMicros     uint
+	TapDelayMicros   uint
+	KeepPushedMicros uint
 
-	shiftButtonMask uint32
-	shiftableMask   uint32
+	ThumbCircle bool
+
+	ThumbLX      *AxisConfig
+	ThumbLY      *AxisConfig
+	ThumbRX      *AxisConfig
+	ThumbRY      *AxisConfig
+	LeftTrigger  *TriggerConfig
+	RightTrigger *TriggerConfig
+	Buttons      []*ButtonConfig
 }
 
 func NewConfig() *Config {
+	var btn buttonConfigBuilder
 	c := &Config{
-		ShiftButtonIndex: 9,
-		ShiftButtonHide:  true,
-		DontShift:        []uint32{7, 8, 17, 18, 19, 20},
 		ThumbCircle:      true,
 		ThumbLX:          NewAxisConfig(),
 		ThumbLY:          NewAxisConfig(),
@@ -34,6 +32,18 @@ func NewConfig() *Config {
 		ThumbRY:          NewAxisConfig(),
 		LeftTrigger:      NewTriggerConfig(),
 		RightTrigger:     NewTriggerConfig(),
+		UpdateMicros:     1000,   // 1ms
+		TapDelayMicros:   300000, // 0.3s
+		KeepPushedMicros: 500000, // 0.05s
+		Buttons: []*ButtonConfig{
+			btn.NewSimple(1, 13),
+			btn.NewSimple(2, 14),
+			btn.NewSimple(3, 15),
+			btn.NewSimple(4, 16),
+			btn.NewSimple(5, 9, 13),
+			btn.NewMulti(6, 13, 2),
+			//btn.NewMulti(7, 14, 2),
+		},
 	}
 	c.update()
 	return c
@@ -70,22 +80,44 @@ func (c *Config) Save(fn string) error {
 }
 
 func (c *Config) update() {
-	if c.ShiftButtonIndex != 0 {
-		c.shiftButtonMask = 1 << uint(c.ShiftButtonIndex-1)
-	} else {
-		c.shiftButtonMask = 0
+	if c.UpdateMicros == 0 {
+		c.UpdateMicros = 1000
 	}
-
-	var m uint32
-	for _, v := range c.DontShift {
-		if 0 < v && v <= 20 {
-			m |= 1 << uint(v-1)
-		}
-	}
-	c.shiftableMask = ^m
 
 	c.LeftTrigger.update()
 	c.RightTrigger.update()
+
+	for _, b := range c.Buttons {
+		b.update(c)
+	}
+
+	for i, bi := range c.Buttons {
+		bi.fmask = bi.imask
+		for j, bj := range c.Buttons {
+			if i == j {
+				continue
+			}
+			if (bi.imask & bj.imask) != 0 {
+				bi.fmask |= bj.imask
+			}
+		}
+	}
+}
+
+func (c *Config) tapDelayTicks() uint {
+	n := c.TapDelayMicros / c.UpdateMicros
+	if n == 0 {
+		n = 1
+	}
+	return n
+}
+
+func (c *Config) keepPushedTicks() uint {
+	n := c.KeepPushedMicros / c.UpdateMicros
+	if n == 0 {
+		n = 1
+	}
+	return n
 }
 
 type AxisConfig struct {
@@ -115,6 +147,7 @@ func NewTriggerConfig() *TriggerConfig {
 	t.update()
 	return t
 }
+
 func (t *TriggerConfig) update() {
 	if t.TouchTreshold <= 1.0 {
 		t.touch = uint16(t.TouchTreshold * 255)
@@ -128,5 +161,47 @@ func (t *TriggerConfig) update() {
 	}
 	if t.pull < t.touch {
 		t.touch = t.pull
+	}
+}
+
+type ButtonConfig struct {
+	Output  int    // output
+	Inputs  []int  // these sources must be pressed together to trigger
+	Multi   uint   // press this many times
+	imask   uint32 // input mask created from Inputs
+	fmask   uint32 // filtering mask when button is used in multiple configs
+	handler ButtonHandler
+}
+
+type buttonConfigBuilder struct {
+	output int
+}
+
+func (b *buttonConfigBuilder) NewSimple(output int, inputs ...int) *ButtonConfig {
+	b.output++
+	return &ButtonConfig{Output: b.output, Inputs: inputs}
+}
+
+func (b *buttonConfigBuilder) NewMulti(output, input int, multi uint) *ButtonConfig {
+	b.output++
+	return &ButtonConfig{Output: b.output, Inputs: []int{input}, Multi: multi}
+}
+
+func (b *ButtonConfig) update(c *Config) {
+	var m uint32
+	for _, v := range b.Inputs {
+		if 0 < v && v <= 16 {
+			m |= 1 << uint(v-1)
+		}
+	}
+	b.imask = m
+	if b.Multi != 0 {
+		b.handler = &MultiButton{
+			taptick: c.tapDelayTicks(),
+			needtap: b.Multi,
+			pushlen: c.keepPushedTicks(),
+		}
+	} else {
+		b.handler = &SimpleButton{}
 	}
 }
