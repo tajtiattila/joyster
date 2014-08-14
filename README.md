@@ -21,7 +21,7 @@ Usage
 
 Run with default configuration.
 
-`joyster -defcfg config.json`
+`joyster -save config.json`
 
 Write default config to specified file and exit.
 

@@ -10,22 +10,36 @@ import (
 	"time"
 )
 
+var (
+	savecfg = flag.String("save", "", "save default configfile into file specified and exit")
+	loadcfg = flag.String("cfg", "", "configfile to use")
+	quiet   = flag.Bool("quiet", false, "don't print info at startup")
+	prtver  = flag.Bool("version", false, "print version and exit")
+	Version = "development"
+)
+
 func main() {
 	cfg := NewConfig()
-	defcfg := flag.String("defcfg", "", "save default configfile into file specified")
-	fn := flag.String("cfg", "", "configfile")
 	flag.Parse()
 
-	if *defcfg != "" {
-		err := cfg.Save(*defcfg)
+	if flag.NArg() != 0 {
+		abort("Positional arguments not supported")
+	}
+
+	if *prtver {
+		fmt.Println(Version)
+		return
+	}
+	if *savecfg != "" {
+		err := cfg.Save(*savecfg)
 		if err != nil {
 			abort(err)
 		}
 		return
 	}
 
-	if *fn != "" {
-		err := cfg.Load(*fn)
+	if *loadcfg != "" {
+		err := cfg.Load(*loadcfg)
 		if err != nil {
 			abort(err)
 		}
@@ -36,10 +50,13 @@ func main() {
 		}
 	}
 
-	fmt.Println("vJoy version:", vjoy.Version())
-	fmt.Println("  Product:       ", vjoy.ProductString())
-	fmt.Println("  Manufacturer:  ", vjoy.ManufacturerString())
-	fmt.Println("  Serial number: ", vjoy.SerialNumberString())
+	if !*quiet {
+		fmt.Println("joyster version:", Version)
+		fmt.Println("vJoy version:", vjoy.Version())
+		fmt.Println("  Product:       ", vjoy.ProductString())
+		fmt.Println("  Manufacturer:  ", vjoy.ManufacturerString())
+		fmt.Println("  Serial number: ", vjoy.SerialNumberString())
+	}
 	d, err := vjoy.Acquire(1)
 	if err != nil {
 		abort(err)
@@ -54,8 +71,8 @@ func main() {
 	}
 }
 
-func abort(err error) {
-	fmt.Println(err)
+func abort(a ...interface{}) {
+	fmt.Println(a...)
 	os.Exit(1)
 }
 
