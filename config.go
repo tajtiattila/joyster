@@ -36,13 +36,11 @@ func NewConfig() *Config {
 		TapDelayMicros:   300000, // 0.3s
 		KeepPushedMicros: 500000, // 0.05s
 		Buttons: []*ButtonConfig{
-			btn.NewSimple(1, 13),
-			btn.NewSimple(2, 14),
+			btn.NewDouble(1, 6, 13),
+			btn.NewDouble(2, 7, 14),
 			btn.NewSimple(3, 15),
 			btn.NewSimple(4, 16),
 			btn.NewSimple(5, 9, 13),
-			btn.NewMulti(6, 13, 2),
-			//btn.NewMulti(7, 14, 2),
 		},
 	}
 	c.update()
@@ -166,8 +164,8 @@ func (t *TriggerConfig) update() {
 
 type ButtonConfig struct {
 	Output  int    // output
+	Double  int    // output for doubleclick
 	Inputs  []int  // these sources must be pressed together to trigger
-	Multi   uint   // press this many times
 	imask   uint32 // input mask created from Inputs
 	fmask   uint32 // filtering mask when button is used in multiple configs
 	handler ButtonHandler
@@ -182,23 +180,21 @@ func (b *buttonConfigBuilder) NewSimple(output int, inputs ...int) *ButtonConfig
 	return &ButtonConfig{Output: b.output, Inputs: inputs}
 }
 
-func (b *buttonConfigBuilder) NewMulti(output, input int, multi uint) *ButtonConfig {
+func (b *buttonConfigBuilder) NewDouble(output, double, input int) *ButtonConfig {
 	b.output++
-	return &ButtonConfig{Output: b.output, Inputs: []int{input}, Multi: multi}
+	return &ButtonConfig{Output: b.output, Double: double, Inputs: []int{input}}
 }
 
 func (b *ButtonConfig) update(c *Config) {
 	var m uint32
 	for _, v := range b.Inputs {
-		if 0 < v && v <= 16 {
-			m |= 1 << uint(v-1)
-		}
+		m |= 1 << uint(v-1)
 	}
 	b.imask = m
-	if b.Multi != 0 {
+	if b.Double != 0 {
 		b.handler = &MultiButton{
 			taptick: c.tapDelayTicks(),
-			needtap: b.Multi,
+			needtap: 2,
 			pushlen: c.keepPushedTicks(),
 		}
 	} else {

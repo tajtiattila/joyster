@@ -82,15 +82,22 @@ func updateAxes(c *Config, gp *xinput.Gamepad, d *vjoy.Device) {
 
 func updateButtons(c *Config, gp *xinput.Gamepad, d *vjoy.Device) {
 	btns := uint32(gp.Buttons)
-	if c.LeftTrigger.pull <= uint16(gp.LeftTrigger) {
-		btns |= 1 << 10
+	if c.LeftTrigger.touch <= uint16(gp.LeftTrigger) {
+		if c.LeftTrigger.pull <= uint16(gp.LeftTrigger) {
+			btns |= 1 << 16
+		} else {
+			btns |= 1 << 17
+		}
 	}
-	if c.RightTrigger.pull <= uint16(gp.RightTrigger) {
-		btns |= 1 << 11
+	if c.RightTrigger.touch <= uint16(gp.RightTrigger) {
+		if c.RightTrigger.pull <= uint16(gp.RightTrigger) {
+			btns |= 1 << 18
+		} else {
+			btns |= 1 << 19
+		}
 	}
 	for _, bc := range c.Buttons {
-		b := d.Button(bc.Output - 1)
-		b.Set(bc.handler.Handle((btns & bc.fmask) == bc.imask))
+		bc.handler.Handle(d, bc, (btns&bc.fmask) == bc.imask)
 	}
 }
 

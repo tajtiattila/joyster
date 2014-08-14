@@ -67,6 +67,10 @@ Input buttons are recognised according to the following list:
     14     BUTTON_B
     15     BUTTON_X
     16     BUTTON_Y
+    17     LEFT_TRIGGER pull
+    18     LEFT_TRIGGER touch
+    19     RIGHT_TRIGGER pull
+    20     RIGHT_TRIGGER touch
 
 They are mapped according to elements in config.Buttons to output buttons.
 
@@ -91,9 +95,9 @@ floating point values usually in the range (0..1).
 
 `config.UpdateMicros` update frequency in microseconds
 
-`config.TapDelayMicros` is the maximum time between taps for `Multi` buttons
+`config.TapDelayMicros` is the maximum time between taps for "double-tap" buttons
 
-`config.KeepPushedMicros` specifies how long should a `Multi` button kept pressed
+`config.KeepPushedMicros` specifies how long should a double-tapped button kept pressed
 
 `config.ThumbCircle` modifies the logic of reading thumbstick positions. Normally when the
 thumbstick is moved diagonally, the distinct X and Y axes cannot reach their extreme values.
@@ -131,7 +135,7 @@ Settings for triggers. These are maps with the following values:
 button will be set.
 
 `TouchTreshold` sets the threshold, above which the corresponding "touch"
-output button will be set. Currently unused.
+output button will be set.
 
 `Axis` enables the trigger into an axis.
 
@@ -161,8 +165,10 @@ to special handling. Eg. with
 
 Output 1 will be fired only when input 13 is pressed, but 9 is not.
 
-`Multi` is used for multiple taps. Value of 2 means double-tap. The output will
-be triggered if the input button is pressed this many times in quick succession.
+`Double` is a second output for this button, when the input(s) are double tapped.
+The output will be triggered if the input button is pressed twice in quick succession.
+The normal output will be disabled while the double output is set. This is useful for
+continuous outputs, eg. normal: increase throttle, double: set throttle to 100%.
 
 virtual joystick
 ----------------
@@ -179,110 +185,135 @@ Example
 
 Example configuration for Elite: Dangerous follows.
 
-### Left Thumb
+### Flight controls
+
+#### Triggers
+
+Fire Primary/Secondary
+
+#### Shoulders
+
+used as shift (LS and RS)
+
+#### D-Pad: targeting
+
+* Up: target ahead
+* Down: highest thread
+* Left/Right: prev/next subsystem
+
+#### LS + D-Pad: targeting extra
+
+* Up/Down: prev/next hostile
+* Left/Right: prev/next ship
+
+#### RS + D-Pad: toggles (hardpoint, landing gear, flight assist, cargo scoop)
+
+* Up: hardpoints
+* Down: landing gear
+* Left: flight assist
+* Right: cargo scoop
+
+#### LS + RS + dpad: misc. toggles sensor range, lights
+
+* Up/Down: sensor range
+* Right: ship spotlight
+
+#### Buttons: thrust
+
+* X: increase throttle (double: set to 100%)
+* A: reduce throttle (double: set to 0%)
+* B: engine boost
+* Y: throttle to 50% (double: set to -100%)
+
+#### LS + Buttons: thrust extra
+
+* A: thrust backward
+* X: thrust forward
+* B: frameshift
+
+#### RS + Buttons: power distribution
+
+* X: increase SYS
+* Y: increase ENG
+* B: increase WEP
+* A: balance power
+
+#### Left Thumb
 
 * Axes: Pitch and Yaw (Galaxy map: Translate X and Y)
 * Button: yaw to roll toggle (Galaxy map: Z/Y toggle)
 
-### Right Thumb
+#### Right Thumb
 
 * Axes: Lateral and vertical thrust (Galaxy map: Rotate X and Y)
 * Button: headlook toggle
 
-### D-Pad
+----------
 
-* Unshifted: targeting (target ahead, prev/next subsystem, highest treat)
-* Shifted: targeting (prev hostile, prev/next target, next hostile)
-* Extra (both shoulders): power (increase SYS/ENG/WEP and reset)
-* UI focus: move select
+### UI Focus
 
-### Buttons
-
-* A: increase throttle (double tap: throttle to 100%, shifted: throttle to -100%)
-* X: decrease throttle (double tap: throttle to 0%)
-* B: engine boost (shifted: frameshift drive)
-* Y: throttle to 50% (shifted: throttle to -100%)
-* Back: toggle hardpoints (shifted: silent running, extra: landing gear)
-
-#### UI focus
-
+* D-Pad: move selection
+* Triggers: prev/next page
 * A: select
-* B: back
 
-#### Landing
+### Galaxy map
 
-* B: thrust back
-* Y: thrust forward
+#### Left Thumb
 
-### Triggers
+* Axes: Translate X and Y
+* Button: Z/Y toggle
 
-* Left: secondary fire
-* Right: primary fire
+#### Right Thumb
 
-#### UI Focus
+* Axes: Rotate X and Y
 
-* Left: prev page
-* Right: next page
+#### Other
 
-### Shoulders
-
-* Left: SHIFT
-* Right: double: flight assist toggle
+* Triggers: prev/next page
+* A: select
 
 ### Notes
 
-Map normal buttons except shift so that they yield the same value in
-the output as in input.
+Buttons that support double click should be shifted within joyster,
+otherwise a double click could be triggered even if a shift button is pressed.
 
 Outputs:
 
-* 1-8: same as input
-* 9: left shoulder double tap
-* 10-16: same as input
-* 17-20: DPad shifted
-* 21: (unused)
-* 22: Back shifted
-* 23-24: A, X double tap
-* 25-28: DPad special shift
-* 29-32: A, B, X, Y shifted
+* 1-20: same as inputs (see "Buttons" above)
+* 21-24: buttons with LS
+* 25-28: buttons with RS
+* 29-32: buttons double tap
 
-		"Buttons":[
-			{"Output":1, "Inputs":[1]},
-			{"Output":2, "Inputs":[2]},
-			{"Output":3, "Inputs":[3]},
-			{"Output":4, "Inputs":[4]},
-			{"Output":5, "Inputs":[5]},
-			{"Output":6, "Inputs":[6]},
-			{"Output":7, "Inputs":[7]},
-			{"Output":8, "Inputs":[8]},
-			{"Output":9, "Inputs":[9], "Multi":2},
-			{"Output":10, "Inputs":[10], "Multi":2},
-			{"Output":11, "Inputs":[11]},
-			{"Output":12, "Inputs":[12]},
-			{"Output":13, "Inputs":[13]},
-			{"Output":14, "Inputs":[14]},
-			{"Output":15, "Inputs":[15]},
-			{"Output":16, "Inputs":[16]},
-			// D-Pad shifted
-			{"Output":17, "Inputs":[9, 1]},
-			{"Output":18, "Inputs":[9, 2]},
-			{"Output":19, "Inputs":[9, 3]},
-			{"Output":20, "Inputs":[9, 4]},
-			// Back extra
-			{"Output":21, "Inputs":[9, 10, 6]},
-			// Back shifted
-			{"Output":22, "Inputs":[9, 6]},
-			// A, X double tap
-			{"Output":23, "Inputs":[13], "Multi":2},
-			{"Output":24, "Inputs":[15], "Multi":2},
-			// D-Pad extra
-			{"Output":17, "Inputs":[9, 10, 1]},
-			{"Output":18, "Inputs":[9, 10, 2]},
-			{"Output":19, "Inputs":[9, 10, 3]},
-			{"Output":20, "Inputs":[9, 10, 4]},
-			// A, B, X, Y shifted
-			{"Output":29, "Inputs":[9, 13]},
-			{"Output":30, "Inputs":[9, 14]},
-			{"Output":31, "Inputs":[9, 15]},
-			{"Output":32, "Inputs":[9, 16]}
-		]
+Config:
+
+		  "Buttons": [
+			  { "Output":1,  "Inputs":[1]  },
+			  { "Output":2,  "Inputs":[2]  },
+			  { "Output":3,  "Inputs":[3]  },
+			  { "Output":4,  "Inputs":[4]  },
+			  { "Output":5,  "Inputs":[5]  },
+			  { "Output":6,  "Inputs":[6]  },
+			  { "Output":7,  "Inputs":[7]  },
+			  { "Output":8,  "Inputs":[8]  },
+			  { "Output":9,  "Inputs":[9]  },
+			  { "Output":10, "Inputs":[10] },
+			  { "Output":11, "Inputs":[11] },
+			  { "Output":12, "Inputs":[12] },
+			  { "Output":13, "Inputs":[13], "Double":29 },
+			  { "Output":14, "Inputs":[14], "Double":30 },
+			  { "Output":15, "Inputs":[15], "Double":31 },
+			  { "Output":16, "Inputs":[16], "Double":32 },
+			  { "Output":17, "Inputs":[17] },
+			  { "Output":18, "Inputs":[18] },
+			  { "Output":19, "Inputs":[19] },
+			  { "Output":20, "Inputs":[20] },
+			  { "Output":21, "Inputs":[9, 13] },
+			  { "Output":22, "Inputs":[9, 14] },
+			  { "Output":23, "Inputs":[9, 15] },
+			  { "Output":24, "Inputs":[9, 16] },
+			  { "Output":25, "Inputs":[10, 13] },
+			  { "Output":26, "Inputs":[10, 14] },
+			  { "Output":27, "Inputs":[10, 15] },
+			  { "Output":28, "Inputs":[10, 16] }
+		  ]
+
