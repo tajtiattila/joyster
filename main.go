@@ -29,6 +29,11 @@ func main() {
 		if err != nil {
 			abort(err)
 		}
+	} else {
+		if cfg.Load("joyster.cfg") != nil {
+			// no error, but reset to default
+			cfg = NewConfig()
+		}
 	}
 
 	fmt.Println("vJoy version:", vjoy.Version())
