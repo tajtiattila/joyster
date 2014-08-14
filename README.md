@@ -183,7 +183,8 @@ Buttons: Joy_1, Joy_2, ... Joy_32
 Example
 -------
 
-Example configuration for Elite: Dangerous follows.
+An example configuration for Elite: Dangerous with the controls below
+can be found in the misc/ed directory.
 
 ### Flight controls
 
