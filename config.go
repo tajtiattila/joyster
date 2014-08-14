@@ -157,6 +157,12 @@ func (t *TriggerConfig) update() {
 	} else {
 		t.pull = 1000
 	}
+	if t.pull == 0 {
+		t.pull = 1
+	}
+	if t.touch == 0 {
+		t.touch = 1
+	}
 	if t.pull < t.touch {
 		t.touch = t.pull
 	}
