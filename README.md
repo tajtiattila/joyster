@@ -174,4 +174,115 @@ Right thumb: Joy_RXAxis and Joy_RYAxis
 
 Buttons: Joy_1, Joy_2, ... Joy_32
 
+Example
+-------
 
+Example configuration for Elite: Dangerous follows.
+
+### Left Thumb
+
+* Axes: Pitch and Yaw (Galaxy map: Translate X and Y)
+* Button: yaw to roll toggle (Galaxy map: Z/Y toggle)
+
+### Right Thumb
+
+* Axes: Lateral and vertical thrust (Galaxy map: Rotate X and Y)
+* Button: headlook toggle
+
+### D-Pad
+
+* Unshifted: targeting (target ahead, prev/next subsystem, highest treat)
+* Shifted: targeting (prev hostile, prev/next target, next hostile)
+* Extra (both shoulders): power (increase SYS/ENG/WEP and reset)
+* UI focus: move select
+
+### Buttons
+
+* A: increase throttle (double tap: throttle to 100%, shifted: throttle to -100%)
+* X: decrease throttle (double tap: throttle to 0%)
+* B: engine boost (shifted: frameshift drive)
+* Y: throttle to 50% (shifted: throttle to -100%)
+* Back: toggle hardpoints (shifted: silent running, extra: landing gear)
+
+#### UI focus
+
+* A: select
+* B: back
+
+#### Landing
+
+* B: thrust back
+* Y: thrust forward
+
+### Triggers
+
+* Left: secondary fire
+* Right: primary fire
+
+#### UI Focus
+
+* Left: prev page
+* Right: next page
+
+### Shoulders
+
+* Left: SHIFT
+* Right: double: flight assist toggle
+
+### Notes
+
+Map normal buttons except shift so that they yield the same value in
+the output as in input.
+
+Outputs:
+
+* 1-8: same as input
+* 9: left shoulder double tap
+* 10-16: same as input
+* 17-20: DPad shifted
+* 21: (unused)
+* 22: Back shifted
+* 23-24: A, X double tap
+* 25-28: DPad special shift
+* 29-32: A, B, X, Y shifted
+
+		"Buttons":[
+			{"Output":1, "Inputs":[1]},
+			{"Output":2, "Inputs":[2]},
+			{"Output":3, "Inputs":[3]},
+			{"Output":4, "Inputs":[4]},
+			{"Output":5, "Inputs":[5]},
+			{"Output":6, "Inputs":[6]},
+			{"Output":7, "Inputs":[7]},
+			{"Output":8, "Inputs":[8]},
+			{"Output":9, "Inputs":[9], "Multi":2},
+			{"Output":10, "Inputs":[10], "Multi":2},
+			{"Output":11, "Inputs":[11]},
+			{"Output":12, "Inputs":[12]},
+			{"Output":13, "Inputs":[13]},
+			{"Output":14, "Inputs":[14]},
+			{"Output":15, "Inputs":[15]},
+			{"Output":16, "Inputs":[16]},
+			// D-Pad shifted
+			{"Output":17, "Inputs":[9, 1]},
+			{"Output":18, "Inputs":[9, 2]},
+			{"Output":19, "Inputs":[9, 3]},
+			{"Output":20, "Inputs":[9, 4]},
+			// Back extra
+			{"Output":21, "Inputs":[9, 10, 6]},
+			// Back shifted
+			{"Output":22, "Inputs":[9, 6]},
+			// A, X double tap
+			{"Output":23, "Inputs":[13], "Multi":2},
+			{"Output":24, "Inputs":[15], "Multi":2},
+			// D-Pad extra
+			{"Output":17, "Inputs":[9, 10, 1]},
+			{"Output":18, "Inputs":[9, 10, 2]},
+			{"Output":19, "Inputs":[9, 10, 3]},
+			{"Output":20, "Inputs":[9, 10, 4]},
+			// A, B, X, Y shifted
+			{"Output":29, "Inputs":[9, 13]},
+			{"Output":30, "Inputs":[9, 14]},
+			{"Output":31, "Inputs":[9, 15]},
+			{"Output":32, "Inputs":[9, 16]}
+		]
