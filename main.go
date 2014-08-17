@@ -32,6 +32,7 @@ func main() {
 		abort("Positional arguments not supported")
 	}
 
+	var cfgch <-chan *Config
 	exit := false
 	if *prtver {
 		fmt.Println(Version)
@@ -53,10 +54,15 @@ func main() {
 		if err != nil {
 			abort(err)
 		}
+		cfgch = autoloadconfig(*loadcfg)
 	} else {
-		if cfg.Load("joyster.cfg") != nil {
+		fn := "joyster.cfg"
+		if err := cfg.Load(fn); err != nil {
 			// no error, but reset to default
 			cfg = NewConfig()
+			fmt.Println(err)
+		} else {
+			cfgch = autoloadconfig(fn)
 		}
 	}
 
@@ -79,6 +85,11 @@ func main() {
 		xinput.GetState(0, &xs)
 		t.update(d)
 		time.Sleep(time.Duration(cfg.UpdateMicros) * time.Microsecond)
+		select {
+		case cfg := <-cfgch:
+			t.config = cfg
+		default:
+		}
 	}
 }
 
@@ -218,4 +229,24 @@ func (t *ticker) updateButtons(d *vjoy.Device) {
 func abort(a ...interface{}) {
 	fmt.Println(a...)
 	os.Exit(1)
+}
+
+func autoloadconfig(fn string) <-chan *Config {
+	ch := make(chan *Config)
+	if fi, err := os.Stat(fn); err != nil {
+		t := fi.ModTime()
+		go func() {
+			for {
+				if fi, err := os.Stat(fn); err != nil && fi.ModTime().After(t) {
+					t = fi.ModTime()
+					cfg := new(Config)
+					if err := cfg.Load(fn); err == nil {
+						ch <- cfg
+					}
+				}
+				time.Sleep(time.Second)
+			}
+		}()
+	}
+	return ch
 }
