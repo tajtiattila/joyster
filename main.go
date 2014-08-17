@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/tajtiattila/vjoy"
 	"github.com/tajtiattila/xinput"
-	"math"
 	"os"
 	"time"
 )
@@ -18,6 +17,13 @@ var (
 	Version = "development"
 )
 
+const (
+	LTriggerPull  = 1 << 10
+	RTriggerPull  = 1 << 11
+	LTriggerTouch = 1 << 16
+	RTriggerTouch = 1 << 17
+)
+
 func main() {
 	cfg := NewConfig()
 	flag.Parse()
@@ -26,15 +32,19 @@ func main() {
 		abort("Positional arguments not supported")
 	}
 
+	exit := false
 	if *prtver {
 		fmt.Println(Version)
-		return
+		exit = true
 	}
 	if *savecfg != "" {
 		err := cfg.Save(*savecfg)
 		if err != nil {
 			abort(err)
 		}
+		exit = true
+	}
+	if exit {
 		return
 	}
 
@@ -64,109 +74,148 @@ func main() {
 	defer d.Relinquish()
 
 	var xs xinput.State
+	t := &ticker{config: cfg, gamepad: &xs.Gamepad}
 	for {
 		xinput.GetState(0, &xs)
-		update(cfg, &xs.Gamepad, d)
+		t.update(d)
 		time.Sleep(time.Duration(cfg.UpdateMicros) * time.Microsecond)
+	}
+}
+
+type ticker struct {
+	config  *Config
+	gamepad *xinput.Gamepad
+
+	x, y, z, rx, ry, rz, u, v float32
+
+	lastb uint32
+
+	rolltoyaw  bool
+	triggeryaw bool
+	headlook   bool
+
+	view viewaccumulatelogic
+}
+
+func (t *ticker) update(d *vjoy.Device) {
+	t.updateAxes(d)
+	t.updateButtons(d)
+	t.updateFlight()
+
+	t.updateDevice(d)
+}
+
+func (t *ticker) updateDevice(d *vjoy.Device) {
+	d.Axis(vjoy.AxisX).Setf(t.x)
+	d.Axis(vjoy.AxisY).Setf(t.y)
+	d.Axis(vjoy.AxisZ).Setf(t.z)
+	d.Axis(vjoy.AxisRX).Setf(t.rx)
+	d.Axis(vjoy.AxisRY).Setf(t.ry)
+	d.Axis(vjoy.AxisRZ).Setf(t.rz)
+	d.Axis(vjoy.Slider0).Setf(t.u)
+	d.Axis(vjoy.Slider1).Setf(t.v)
+	d.Update()
+}
+
+func (t *ticker) updateFlight() {
+	b := uint32(t.gamepad.Buttons)
+	if t.config.RollToYaw {
+		if (((b ^ t.lastb) & b) & uint32(xinput.LEFT_THUMB)) != 0 {
+			t.rolltoyaw = !t.rolltoyaw
+			t.triggeryaw = false
+		}
+	}
+	if t.config.HeadLook != nil {
+		if (((b ^ t.lastb) & b) & uint32(xinput.RIGHT_THUMB)) != 0 {
+			t.headlook = !t.headlook
+		}
+	}
+	if t.config.TriggerAxis != nil {
+		if (((b ^ t.lastb) & b) & t.config.TriggerAxis.imask) != 0 {
+			t.triggeryaw = !t.triggeryaw
+			if t.triggeryaw {
+				t.rolltoyaw = false
+			}
+		}
+	}
+	t.lastb = b
+}
+
+func (t *ticker) updateAxes(d *vjoy.Device) {
+	var lt, rt thumbStick
+	lt.set(t.gamepad.ThumbLX, t.gamepad.ThumbLY)
+	rt.set(t.gamepad.ThumbRX, t.gamepad.ThumbRY)
+	if t.config.ThumbCircle {
+		lt.circularize()
+		rt.circularize()
+	}
+
+	lx := float32(axismap(t.config.ThumbLX, lt.xv, lt.xs))
+	ly := float32(axismap(t.config.ThumbLY, lt.yv, lt.ys))
+	rx := float32(axismap(t.config.ThumbRX, rt.xv, rt.xs))
+	ry := float32(axismap(t.config.ThumbRY, rt.yv, rt.ys))
+	if t.rolltoyaw {
+		t.x = 0
+		t.y = ly
+		t.z = lx
+	} else {
+		t.x = lx
+		t.y = ly
+		t.z = 0
+	}
+	if t.headlook {
+		t.rx, t.ry = 0, 0
+		t.u, t.v = t.view.update(t.config, rx, ry)
+	} else {
+		t.rx, t.ry = rx, ry
+		t.u, t.v = t.view.jumpToOrigin(t.config)
+	}
+
+	if t.config.LeftTrigger.Axis {
+		d.Axis(vjoy.AxisZ).Setuf(float32(t.gamepad.LeftTrigger) / 255)
+	}
+	if t.config.RightTrigger.Axis {
+		d.Axis(vjoy.AxisRZ).Setuf(float32(t.gamepad.RightTrigger) / 255)
+	}
+}
+
+func (t *ticker) updateButtons(d *vjoy.Device) {
+	btns := uint32(t.gamepad.Buttons)
+	lv, rv := uint16(t.gamepad.LeftTrigger), uint16(t.gamepad.RightTrigger)
+	if t.triggeryaw {
+		tac := t.config.TriggerAxis
+		lx, rx := lv > tac.breakthreshold, rv > tac.breakthreshold
+		if lx == rx {
+			if lx {
+				btns |= tac.breakmask
+			}
+		} else {
+			lf := triggermap(lv, tac.axisthreshold, tac.Pow)
+			rf := triggermap(rv, tac.axisthreshold, tac.Pow)
+			t.z += rf - lf
+		}
+	} else {
+		if t.config.LeftTrigger.touch <= lv {
+			if t.config.LeftTrigger.pull <= lv {
+				btns |= LTriggerPull
+			} else {
+				btns |= LTriggerTouch
+			}
+		}
+		if t.config.RightTrigger.touch <= rv {
+			if t.config.RightTrigger.pull <= rv {
+				btns |= RTriggerPull
+			} else {
+				btns |= RTriggerTouch
+			}
+		}
+	}
+	for _, bc := range t.config.Buttons {
+		bc.handler.Handle(d, bc, (btns&bc.fmask) == bc.imask)
 	}
 }
 
 func abort(a ...interface{}) {
 	fmt.Println(a...)
 	os.Exit(1)
-}
-
-func update(c *Config, gp *xinput.Gamepad, d *vjoy.Device) {
-	updateAxes(c, gp, d)
-	updateButtons(c, gp, d)
-	d.Update()
-}
-
-func updateAxes(c *Config, gp *xinput.Gamepad, d *vjoy.Device) {
-	var lt, rt thumbStick
-	lt.set(gp.ThumbLX, gp.ThumbLY)
-	rt.set(gp.ThumbRX, gp.ThumbRY)
-	if c.ThumbCircle {
-		lt.circularize()
-		rt.circularize()
-	}
-	d.Axis(vjoy.AxisX).Setf(axismap(c.ThumbLX, lt.xv, lt.xs))
-	d.Axis(vjoy.AxisY).Setf(axismap(c.ThumbLY, lt.yv, lt.ys))
-	d.Axis(vjoy.AxisRX).Setf(axismap(c.ThumbRX, rt.xv, rt.xs))
-	d.Axis(vjoy.AxisRY).Setf(axismap(c.ThumbRY, rt.yv, rt.ys))
-	if c.LeftTrigger.Axis {
-		d.Axis(vjoy.AxisZ).Setuf(float32(gp.LeftTrigger) / 255)
-	}
-	if c.RightTrigger.Axis {
-		d.Axis(vjoy.AxisRZ).Setuf(float32(gp.RightTrigger) / 255)
-	}
-}
-
-func updateButtons(c *Config, gp *xinput.Gamepad, d *vjoy.Device) {
-	btns := uint32(gp.Buttons)
-	if c.LeftTrigger.touch <= uint16(gp.LeftTrigger) {
-		if c.LeftTrigger.pull <= uint16(gp.LeftTrigger) {
-			btns |= 1 << 16
-		} else {
-			btns |= 1 << 17
-		}
-	}
-	if c.RightTrigger.touch <= uint16(gp.RightTrigger) {
-		if c.RightTrigger.pull <= uint16(gp.RightTrigger) {
-			btns |= 1 << 18
-		} else {
-			btns |= 1 << 19
-		}
-	}
-	for _, bc := range c.Buttons {
-		bc.handler.Handle(d, bc, (btns&bc.fmask) == bc.imask)
-	}
-}
-
-type thumbStick struct {
-	xv float64
-	xs float32
-	yv float64
-	ys float32
-}
-
-func (t *thumbStick) set(xi, yi int16) {
-	t.xv, t.xs = float64FromInt16(xi)
-	t.yv, t.ys = float64FromInt16(yi)
-}
-
-func (t *thumbStick) circularize() {
-	if t.xv*t.xv+t.yv*t.yv < 1e-3 {
-		return
-	}
-
-	var u float64
-	if t.xv > t.yv {
-		u = t.yv / t.xv // yu/xu = yv/xv
-	} else {
-		u = t.xv / t.yv // xu/yu = xv/yv
-	}
-	m := math.Sqrt(1 + u*u)
-	t.xv *= m
-	t.yv *= m
-}
-
-func axismap(c *AxisConfig, vabs float64, sign float32) float32 {
-	if vabs <= c.Min {
-		return 0
-	}
-	if c.Max <= vabs {
-		return sign
-	}
-	vabs = (vabs - c.Min) / (c.Max - c.Min)
-	return sign * float32(math.Pow(vabs, c.Pow))
-}
-
-func float64FromInt16(v int16) (abs float64, sign float32) {
-	if v < 0 {
-		return float64(-int(v)) / 0x8000, -1
-	} else {
-		return float64(v) / 0x7fff, 1
-	}
-	return 0, 0 // not reached
 }

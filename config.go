@@ -11,6 +11,10 @@ type Config struct {
 	TapDelayMicros   uint
 	KeepPushedMicros uint
 
+	RollToYaw   bool               // use left thumbstich to switch ThumbLX -> XAxis/ZAxis
+	TriggerAxis *TriggerAxisConfig // convert triggers to yaw/break
+	HeadLook    *HeadLookConfig
+
 	ThumbCircle bool
 
 	ThumbLX      *AxisConfig
@@ -23,7 +27,6 @@ type Config struct {
 }
 
 func NewConfig() *Config {
-	var btn buttonConfigBuilder
 	c := &Config{
 		ThumbCircle:      true,
 		ThumbLX:          NewAxisConfig(),
@@ -36,11 +39,26 @@ func NewConfig() *Config {
 		TapDelayMicros:   300000, // 0.3s
 		KeepPushedMicros: 500000, // 0.05s
 		Buttons: []*ButtonConfig{
-			btn.NewDouble(1, 6, 13),
-			btn.NewDouble(2, 7, 14),
-			btn.NewSimple(3, 15),
-			btn.NewSimple(4, 16),
-			btn.NewSimple(5, 9, 13),
+			newDouble(1, 11, 13),
+			newDouble(2, 12, 14),
+			newSimple(3, 15),
+			newSimple(4, 16),
+			newSimple(5, 9, 13),
+			newSimple(6, 6),
+		},
+		RollToYaw: true,
+		TriggerAxis: &TriggerAxisConfig{
+			Switch:         []uint{6},
+			BreakButton:    13,
+			AxisThreshold:  0.15,
+			BreakThreshold: 0.05,
+			Pow:            1.5,
+		},
+		HeadLook: &HeadLookConfig{
+			MovePerSec:        2.0,
+			AutoCenterDist:    0.2,
+			AutoCenterAccel:   0.0001,
+			JumpToCenterAccel: 0.1,
 		},
 	}
 	c.update()
@@ -85,6 +103,11 @@ func (c *Config) update() {
 	c.LeftTrigger.update()
 	c.RightTrigger.update()
 
+	c.ThumbLX.update()
+	c.ThumbLY.update()
+	c.ThumbRX.update()
+	c.ThumbRY.update()
+
 	for _, b := range c.Buttons {
 		b.update(c)
 	}
@@ -99,6 +122,13 @@ func (c *Config) update() {
 				bi.fmask |= bj.imask
 			}
 		}
+	}
+
+	if c.TriggerAxis != nil {
+		c.TriggerAxis.update()
+	}
+	if c.HeadLook != nil {
+		c.HeadLook.update(c)
 	}
 }
 
@@ -126,6 +156,18 @@ type AxisConfig struct {
 
 func NewAxisConfig() *AxisConfig {
 	return &AxisConfig{Min: 0.1, Max: 0.95, Pow: 2.0}
+}
+
+func (c *AxisConfig) update() {
+	if c.Min >= 1 {
+		c.Min = 0
+	}
+	if c.Max <= 0 {
+		c.Max = 1
+	}
+	if c.Pow < 1 {
+		c.Pow = 1
+	}
 }
 
 type TriggerConfig struct {
@@ -169,34 +211,24 @@ func (t *TriggerConfig) update() {
 }
 
 type ButtonConfig struct {
-	Output  int    // output
-	Double  int    // output for doubleclick
-	Inputs  []int  // these sources must be pressed together to trigger
+	Output  uint   // output
+	Double  uint   // output for doubleclick
+	Inputs  []uint // these sources must be pressed together to trigger
 	imask   uint32 // input mask created from Inputs
 	fmask   uint32 // filtering mask when button is used in multiple configs
 	handler ButtonHandler
 }
 
-type buttonConfigBuilder struct {
-	output int
+func newSimple(output uint, inputs ...uint) *ButtonConfig {
+	return &ButtonConfig{Output: output, Inputs: inputs}
 }
 
-func (b *buttonConfigBuilder) NewSimple(output int, inputs ...int) *ButtonConfig {
-	b.output++
-	return &ButtonConfig{Output: b.output, Inputs: inputs}
-}
-
-func (b *buttonConfigBuilder) NewDouble(output, double, input int) *ButtonConfig {
-	b.output++
-	return &ButtonConfig{Output: b.output, Double: double, Inputs: []int{input}}
+func newDouble(output, double, input uint) *ButtonConfig {
+	return &ButtonConfig{Output: output, Double: double, Inputs: []uint{input}}
 }
 
 func (b *ButtonConfig) update(c *Config) {
-	var m uint32
-	for _, v := range b.Inputs {
-		m |= 1 << uint(v-1)
-	}
-	b.imask = m
+	b.imask = inputmask(b.Inputs)
 	if b.Double != 0 {
 		b.handler = &MultiButton{
 			taptick: c.tapDelayTicks(),
@@ -206,4 +238,65 @@ func (b *ButtonConfig) update(c *Config) {
 	} else {
 		b.handler = &SimpleButton{}
 	}
+}
+
+type TriggerAxisConfig struct {
+	Switch         []uint
+	BreakButton    uint
+	BreakThreshold float64
+	AxisThreshold  float64
+	Pow            float64
+
+	breakthreshold uint16
+	axisthreshold  uint16
+	imask          uint32
+	breakmask      uint32
+}
+
+func (t *TriggerAxisConfig) update() {
+	t.imask = inputmask(t.Switch)
+	t.axisthreshold = uint16(255 * t.AxisThreshold)
+	t.breakthreshold = uint16(255 * t.BreakThreshold)
+	if t.breakthreshold == 0 {
+		t.breakthreshold = 1
+	}
+	if t.BreakButton != 0 {
+		t.breakmask = 1 << (t.BreakButton - 1)
+	} else {
+		t.breakmask = 0
+	}
+}
+
+type HeadLookConfig struct {
+	MovePerSec        float64
+	AutoCenterDist    float64
+	AutoCenterAccel   float64
+	JumpToCenterAccel float64
+
+	movepertick float64
+	acapertick  float64
+	jumppertick float64
+}
+
+func (v *HeadLookConfig) update(c *Config) {
+	tickpersec := 1e6 / float64(c.UpdateMicros)
+	v.movepertick = v.MovePerSec / tickpersec
+	v.acapertick = v.AutoCenterAccel / tickpersec
+	v.jumppertick = v.JumpToCenterAccel / tickpersec
+	if v.acapertick <= 0.0 {
+		v.acapertick = 1
+	}
+	if v.jumppertick <= 0.0 {
+		v.jumppertick = 1
+	}
+}
+
+func inputmask(iv []uint) uint32 {
+	var m uint32
+	for _, v := range iv {
+		if 0 < v && v < 32 {
+			m |= 1 << uint(v-1)
+		}
+	}
+	return m
 }
