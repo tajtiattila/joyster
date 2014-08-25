@@ -4,6 +4,20 @@ Joyster
 
 XBOX compatible gamepad remapper using [vJoy][] and XInput.
 
+Features
+--------
+
+* Set axis deadzones
+* Remap axes to allow better fine grained control (see "Pow")
+* Triggers as rudder and break (toggle using user defined button)
+* Roll-to-yaw mode (toggle using left thumb)
+* Custom auto centering right stick headlook mode (toggle using right thumb)
+* Shift state support
+* Double tapped buttons
+* Website to display internal states (eg. on your phone while playing)
+
+All features are optional, they may be turned on and off individually.
+
 Requirements
 ------------
 
