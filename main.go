@@ -10,11 +10,14 @@ import (
 )
 
 var (
-	savecfg = flag.String("save", "", "save default configfile into file specified and exit")
-	loadcfg = flag.String("cfg", "", "configfile to use")
-	quiet   = flag.Bool("quiet", false, "don't print info at startup")
-	prtver  = flag.Bool("version", false, "print version and exit")
-	Version = "development"
+	savecfg  = flag.String("save", "", "save default configfile into file specified and exit")
+	loadcfg  = flag.String("cfg", "", "configfile to use")
+	quiet    = flag.Bool("quiet", false, "don't print info at startup")
+	prtver   = flag.Bool("version", false, "print version and exit")
+	webgui   = flag.Bool("web", false, "enable web gui")
+	addr     = flag.String("addr", ":7489", "web gui address")  // "JY"
+	sharedir = flag.String("share", "share", "share directory") // "JY"
+	Version  = "development"
 )
 
 const (
@@ -78,6 +81,10 @@ func main() {
 		abort(err)
 	}
 	defer d.Relinquish()
+
+	if *webgui {
+		WebGUI(*addr, *sharedir)
+	}
 
 	var xs xinput.State
 	t := &ticker{config: cfg, gamepad: &xs.Gamepad, dev: d}

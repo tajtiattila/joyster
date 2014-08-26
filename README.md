@@ -43,6 +43,10 @@ Write default config to specified file and exit.
 
 Run using specified config file.
 
+`joyster -web`
+
+Start with a web server that may be used to display toggles and values on an external device.
+
 Thumbsticks
 -----------
 

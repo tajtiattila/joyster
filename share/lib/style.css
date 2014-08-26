@@ -1,0 +1,51 @@
+body {
+	margin: 0;
+	padding: 0;
+	font: 14px Tahoma, Verdana, Arial, san-serif;
+}
+.outer {
+	display: table;
+	position: absolute;
+	height: 100%;
+	width: 100%;
+	top: 0;
+	left: 0;
+	margin: 0;
+}
+
+.middle {
+	display: table-cell;
+	vertical-align: middle;
+	padding: 0;
+	margin: 0;
+}
+
+.inner {
+	margin-left: auto;
+	margin-right: auto; 
+	width: 40em;
+}
+div.narrow {
+	width: 5em;
+}
+div.wide {
+	width: 15em;
+}
+div.status {
+	display: inline-block;
+	border: 2px solid #aaa;
+	border-radius: 10px;
+	text-align: center;
+	padding: 2em;
+}
+div.status.enabled {
+	border: 2px solid #c66;
+	background: #c33;
+	color: #fff;
+}
+ul {
+    list-style-type: none;
+}
+span.val {
+	font-family: "Lucida Console, Monaco", monospace;
+}

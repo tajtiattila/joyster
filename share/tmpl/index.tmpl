@@ -1,0 +1,51 @@
+{{define "main"}}<!doctype HTML>
+<html>
+<head>
+	<title>Joyster status</title>
+	<link rel="stylesheet" type="text/css" href="lib/style.css"/>
+	<script src="lib/main.js"></script>
+</head>
+<body>
+	<div class="outer"><div class="middle"><div class="inner">
+	<p>
+	<canvas id="lstick" width="80px" height="80px" style="border:1px solid #666;"></canvas>
+	<canvas id="rstick" width="80px" height="80px" style="border:1px solid #666;"></canvas>
+	<canvas id="oxy"    width="80px" height="80px" style="border:1px solid #666;"></canvas>
+	<canvas id="ozy"    width="80px" height="80px" style="border:1px solid #666;"></canvas>
+	<canvas id="orxry"  width="80px" height="80px" style="border:1px solid #666;"></canvas>
+	<canvas id="ouv"    width="80px" height="80px" style="border:1px solid #666;"></canvas>
+	</p>
+	<div id="rollToYaw" class="status narrow">yaw</div>
+	<div id="triggerYaw" class="status wide">rudder</div>
+	<div id="headLook" class="status narrow">view</div>
+	<div id="websockstatus"></div>
+	<ul>
+		<li>ThumbLX=<span class="val" id="thumbLX"></span></li>
+		<li>ThumbLY=<span class="val" id="thumbLY"></span></li>
+		<li>ThumbRX=<span class="val" id="thumbRX"></span></li>
+		<li>ThumbRY=<span class="val" id="thumbRY"></span></li>
+	</ul>
+	</div></div></div>
+	<script type="text/javascript">
+		(function() {
+			websocket({
+				url: "{{$.WebSocketUrl}}",
+				elementSocketInfo: document.getElementById("websockstatus"),
+				rollToYawDiv: document.getElementById("rollToYaw"),
+				triggerYawDiv: document.getElementById("triggerYaw"),
+				headLookDiv: document.getElementById("headLook"),
+				inputLStickCanvas: document.getElementById("lstick"),
+				inputRStickCanvas: document.getElementById("rstick"),
+				outputXYCanvas: document.getElementById("oxy"),
+				outputZYCanvas: document.getElementById("ozy"),
+				outputRXRYCanvas: document.getElementById("orxry"),
+				outputUVCanvas: document.getElementById("ouv"),
+				inputLX: document.getElementById("thumbLX"),
+				inputLY: document.getElementById("thumbLY"),
+				inputRX: document.getElementById("thumbRX"),
+				inputRY: document.getElementById("thumbRY")
+			});
+		})();
+	</script>
+</body>
+</html>{{end}}
