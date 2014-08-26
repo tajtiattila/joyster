@@ -32,6 +32,12 @@ func (t *thumbStick) circularize() {
 	t.yv *= m
 }
 
+func (t *thumbStick) values32() (x float32, y float32) {
+	x = float32(t.xv * t.xs)
+	y = float32(t.yv * t.ys)
+	return
+}
+
 func float64FromInt16(v int16) (abs float64, sign float64) {
 	if v < 0 {
 		return float64(-int(v)) / 0x8000, -1

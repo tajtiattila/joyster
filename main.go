@@ -80,10 +80,10 @@ func main() {
 	defer d.Relinquish()
 
 	var xs xinput.State
-	t := &ticker{config: cfg, gamepad: &xs.Gamepad}
+	t := &ticker{config: cfg, gamepad: &xs.Gamepad, dev: d}
 	for {
 		xinput.GetState(0, &xs)
-		t.update(d)
+		t.update()
 		time.Sleep(time.Duration(cfg.UpdateMicros) * time.Microsecond)
 		select {
 		case cfg := <-cfgch:
@@ -97,65 +97,71 @@ type ticker struct {
 	config  *Config
 	gamepad *xinput.Gamepad
 
-	x, y, z, rx, ry, rz, u, v float32
-
 	lastb uint32
 
-	rolltoyaw  bool
-	triggeryaw bool
-	headlook   bool
-
 	view viewaccumulatelogic
+
+	dev *vjoy.Device
+
+	st Status
 }
 
-func (t *ticker) update(d *vjoy.Device) {
-	t.updateAxes(d)
-	t.updateButtons(d)
+func (t *ticker) update() {
+	t.updateAxes()
+	t.updateButtons()
 	t.updateFlight()
 
-	t.updateDevice(d)
+	t.updateDevice()
+	t.updateListeners()
 }
 
-func (t *ticker) updateDevice(d *vjoy.Device) {
-	d.Axis(vjoy.AxisX).Setf(t.x)
-	d.Axis(vjoy.AxisY).Setf(t.y)
-	d.Axis(vjoy.AxisZ).Setf(t.z)
-	d.Axis(vjoy.AxisRX).Setf(t.rx)
-	d.Axis(vjoy.AxisRY).Setf(t.ry)
-	d.Axis(vjoy.AxisRZ).Setf(t.rz)
-	d.Axis(vjoy.Slider0).Setf(t.u)
-	d.Axis(vjoy.Slider1).Setf(t.v)
+func (t *ticker) updateDevice() {
+	d, o := t.dev, &t.st.O
+	d.Axis(vjoy.AxisX).Setf(o.X)
+	d.Axis(vjoy.AxisY).Setf(o.Y)
+	d.Axis(vjoy.AxisZ).Setf(o.Z)
+	d.Axis(vjoy.AxisRX).Setf(o.RX)
+	d.Axis(vjoy.AxisRY).Setf(o.RY)
+	d.Axis(vjoy.AxisRZ).Setf(o.RZ)
+	d.Axis(vjoy.Slider0).Setf(o.U)
+	d.Axis(vjoy.Slider1).Setf(o.V)
 	d.Update()
+}
+
+func (t *ticker) updateListeners() {
+	DefaultStatusDispatcher.Update(&t.st)
 }
 
 func (t *ticker) updateFlight() {
 	b := uint32(t.gamepad.Buttons)
 	if t.config.RollToYaw {
 		if (((b ^ t.lastb) & b) & uint32(xinput.LEFT_THUMB)) != 0 {
-			t.rolltoyaw = !t.rolltoyaw
-			t.triggeryaw = false
+			t.st.RollToYaw = !t.st.RollToYaw
+			t.st.TriggerYaw = false
 		}
 	}
 	if t.config.HeadLook != nil {
 		if (((b ^ t.lastb) & b) & uint32(xinput.RIGHT_THUMB)) != 0 {
-			t.headlook = !t.headlook
+			t.st.HeadLook = !t.st.HeadLook
 		}
 	}
 	if t.config.TriggerAxis != nil {
 		if (((b ^ t.lastb) & b) & t.config.TriggerAxis.imask) != 0 {
-			t.triggeryaw = !t.triggeryaw
-			if t.triggeryaw {
-				t.rolltoyaw = false
+			t.st.TriggerYaw = !t.st.TriggerYaw
+			if t.st.TriggerYaw {
+				t.st.RollToYaw = false
 			}
 		}
 	}
 	t.lastb = b
 }
 
-func (t *ticker) updateAxes(d *vjoy.Device) {
+func (t *ticker) updateAxes() {
 	var lt, rt thumbStick
 	lt.set(t.gamepad.ThumbLX, t.gamepad.ThumbLY)
 	rt.set(t.gamepad.ThumbRX, t.gamepad.ThumbRY)
+	t.st.I.LX, t.st.I.LY = lt.values32()
+	t.st.I.RX, t.st.I.RY = rt.values32()
 	if t.config.ThumbCircle {
 		lt.circularize()
 		rt.circularize()
@@ -165,35 +171,39 @@ func (t *ticker) updateAxes(d *vjoy.Device) {
 	ly := float32(axismap(t.config.ThumbLY, lt.yv, lt.ys))
 	rx := float32(axismap(t.config.ThumbRX, rt.xv, rt.xs))
 	ry := float32(axismap(t.config.ThumbRY, rt.yv, rt.ys))
-	if t.rolltoyaw {
-		t.x = 0
-		t.y = ly
-		t.z = lx
+	o := &t.st.O
+	if t.st.RollToYaw {
+		o.X = 0
+		o.Y = ly
+		o.Z = lx
 	} else {
-		t.x = lx
-		t.y = ly
-		t.z = 0
+		o.X = lx
+		o.Y = ly
+		o.Z = 0
 	}
-	if t.headlook {
-		t.rx, t.ry = 0, 0
-		t.u, t.v = t.view.update(t.config, rx, ry)
+	if t.st.HeadLook {
+		o.RX, o.RY = 0, 0
+		o.U, o.V = t.view.update(t.config, rx, ry)
 	} else {
-		t.rx, t.ry = rx, ry
-		t.u, t.v = t.view.jumpToOrigin(t.config)
+		o.RX, o.RY = rx, ry
+		o.U, o.V = t.view.jumpToOrigin(t.config)
 	}
 
+	ltr := float32(t.gamepad.LeftTrigger) / 255
+	rtr := float32(t.gamepad.RightTrigger) / 255
+	t.st.I.LTrigger, t.st.I.RTrigger = ltr, rtr
 	if t.config.LeftTrigger.Axis {
-		d.Axis(vjoy.AxisZ).Setuf(float32(t.gamepad.LeftTrigger) / 255)
+		t.dev.Axis(vjoy.AxisZ).Setuf(ltr)
 	}
 	if t.config.RightTrigger.Axis {
-		d.Axis(vjoy.AxisRZ).Setuf(float32(t.gamepad.RightTrigger) / 255)
+		t.dev.Axis(vjoy.AxisRZ).Setuf(rtr)
 	}
 }
 
-func (t *ticker) updateButtons(d *vjoy.Device) {
+func (t *ticker) updateButtons() {
 	btns := uint32(t.gamepad.Buttons)
 	lv, rv := uint16(t.gamepad.LeftTrigger), uint16(t.gamepad.RightTrigger)
-	if t.triggeryaw {
+	if t.st.TriggerYaw {
 		tac := t.config.TriggerAxis
 		lx, rx := lv > tac.breakthreshold, rv > tac.breakthreshold
 		if lx == rx {
@@ -203,7 +213,7 @@ func (t *ticker) updateButtons(d *vjoy.Device) {
 		} else {
 			lf := triggermap(lv, tac.axisthreshold, tac.Pow)
 			rf := triggermap(rv, tac.axisthreshold, tac.Pow)
-			t.z += rf - lf
+			t.st.O.Z += rf - lf
 		}
 	} else {
 		if t.config.LeftTrigger.touch <= lv {
@@ -221,8 +231,18 @@ func (t *ticker) updateButtons(d *vjoy.Device) {
 			}
 		}
 	}
+	t.st.I.Buttons = uint64(btns)
 	for _, bc := range t.config.Buttons {
-		bc.handler.Handle(d, bc, (btns&bc.fmask) == bc.imask)
+		bc.handler.Handle(t, bc, (btns&bc.fmask) == bc.imask)
+	}
+}
+
+func (t *ticker) SetButton(idx uint, value bool) {
+	t.dev.Button(idx).Set(value)
+	if value {
+		t.st.O.Buttons |= 1 << idx
+	} else {
+		t.st.O.Buttons &= ^(1 << idx)
 	}
 }
 

@@ -1,18 +1,17 @@
 package main
 
-import (
-	"github.com/tajtiattila/vjoy"
-)
+type ButtonDevice interface {
+	SetButton(idx uint, value bool)
+}
 
 type ButtonHandler interface {
-	Handle(*vjoy.Device, *ButtonConfig, bool) // update output based on input
+	Handle(ButtonDevice, *ButtonConfig, bool) // update output based on input
 }
 
 type SimpleButton struct{}
 
-func (*SimpleButton) Handle(d *vjoy.Device, c *ButtonConfig, i bool) {
-	b := d.Button(c.Output - 1)
-	b.Set(i)
+func (*SimpleButton) Handle(d ButtonDevice, c *ButtonConfig, i bool) {
+	d.SetButton(c.Output-1, i)
 }
 
 type DelayedButton struct {
@@ -22,7 +21,7 @@ type DelayedButton struct {
 	state bool
 }
 
-func (b *DelayedButton) Handle(d *vjoy.Device, c *ButtonConfig, i bool) {
+func (b *DelayedButton) Handle(d ButtonDevice, c *ButtonConfig, i bool) {
 	if i != b.state {
 		b.ntick++
 		if b.needtick <= b.ntick {
@@ -30,8 +29,7 @@ func (b *DelayedButton) Handle(d *vjoy.Device, c *ButtonConfig, i bool) {
 			b.state = i
 		}
 	}
-	db := d.Button(c.Output - 1)
-	db.Set(b.state)
+	d.SetButton(c.Output-1, b.state)
 }
 
 type MultiButton struct {
@@ -45,9 +43,7 @@ type MultiButton struct {
 	push  uint // counter: decreased over time, nonzero is pressed
 }
 
-func (b *MultiButton) Handle(d *vjoy.Device, c *ButtonConfig, i bool) {
-	bn := d.Button(c.Output - 1)
-	bd := d.Button(c.Double - 1)
+func (b *MultiButton) Handle(d ButtonDevice, c *ButtonConfig, i bool) {
 	if i != b.state {
 		b.state = i
 		if i {
@@ -67,12 +63,13 @@ func (b *MultiButton) Handle(d *vjoy.Device, c *ButtonConfig, i bool) {
 		b.ntap = 0
 	}
 
+	var bn, bd bool
 	if b.push != 0 {
 		b.push--
-		bn.Set(false)
-		bd.Set(true)
+		bd = true
 	} else {
-		bn.Set(i)
-		bd.Set(false)
+		bn = i
 	}
+	d.SetButton(c.Output-1, bn)
+	d.SetButton(c.Double-1, bd)
 }
