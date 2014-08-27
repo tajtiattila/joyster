@@ -15,24 +15,21 @@ type Config struct {
 	TriggerAxis *TriggerAxisConfig // convert triggers to yaw/break
 	HeadLook    *HeadLookConfig
 
-	ThumbCircle bool
+	LeftStick  []StickFilter
+	RightStick []StickFilter
 
-	ThumbLX      *AxisConfig
-	ThumbLY      *AxisConfig
-	ThumbRX      *AxisConfig
-	ThumbRY      *AxisConfig
 	LeftTrigger  *TriggerConfig
 	RightTrigger *TriggerConfig
 	Buttons      []*ButtonConfig
+
+	leftStickHandler  StickHandler
+	rightStickHandler StickHandler
 }
 
 func NewConfig() *Config {
 	c := &Config{
-		ThumbCircle:      true,
-		ThumbLX:          NewAxisConfig(),
-		ThumbLY:          NewAxisConfig(),
-		ThumbRX:          NewAxisConfig(),
-		ThumbRY:          NewAxisConfig(),
+		LeftStick:        DefaultStickFilter,
+		RightStick:       DefaultStickFilter,
 		LeftTrigger:      NewTriggerConfig(),
 		RightTrigger:     NewTriggerConfig(),
 		UpdateMicros:     1000,   // 1ms
@@ -61,7 +58,10 @@ func NewConfig() *Config {
 			JumpToCenterAccel: 0.1,
 		},
 	}
-	c.update()
+	if err := c.update(); err != nil {
+		println(err.Error())
+		panic("defaultConfigError")
+	}
 	return c
 }
 
@@ -71,9 +71,10 @@ func (c *Config) Load(fn string) error {
 		return err
 	}
 	defer f.Close()
-	err = json.NewDecoder(f).Decode(c)
-	c.update()
-	return err
+	if err = json.NewDecoder(f).Decode(c); err != nil {
+		return err
+	}
+	return c.update()
 }
 
 func (c *Config) Save(fn string) error {
@@ -95,7 +96,7 @@ func (c *Config) Save(fn string) error {
 	return err
 }
 
-func (c *Config) update() {
+func (c *Config) update() error {
 	if c.UpdateMicros == 0 {
 		c.UpdateMicros = 1000
 	}
@@ -103,10 +104,13 @@ func (c *Config) update() {
 	c.LeftTrigger.update()
 	c.RightTrigger.update()
 
-	c.ThumbLX.update()
-	c.ThumbLY.update()
-	c.ThumbRX.update()
-	c.ThumbRY.update()
+	var err error
+	if c.leftStickHandler, err = c.stickHandler(c.LeftStick); err != nil {
+		return err
+	}
+	if c.rightStickHandler, err = c.stickHandler(c.RightStick); err != nil {
+		return err
+	}
 
 	for _, b := range c.Buttons {
 		b.update(c)
@@ -130,6 +134,28 @@ func (c *Config) update() {
 	if c.HeadLook != nil {
 		c.HeadLook.update(c)
 	}
+	return nil
+}
+
+type StickHandler func(xi, yi int16) (xo, yo float32)
+
+func (c *Config) stickHandler(fcv []StickFilter) (StickHandler, error) {
+	var fv []StickLogic
+	for _, fc := range fcv {
+		f, err := NewStickLogic(c, fc.Name, fc.Args)
+		if err != nil {
+			return nil, err
+		}
+		fv = append(fv, f)
+	}
+	var sp StickPos
+	return func(xi, yi int16) (xo, yo float32) {
+		sp.Init(xi, yi)
+		for _, f := range fv {
+			sp.Apply(f)
+		}
+		return float32(sp.X), float32(sp.Y)
+	}, nil
 }
 
 func (c *Config) tapDelayTicks() uint {
@@ -148,26 +174,15 @@ func (c *Config) keepPushedTicks() uint {
 	return n
 }
 
-type AxisConfig struct {
-	Min float64 // 0 will be reported under this value (0..1)
-	Max float64 // 1 will be reported above this value (0..1)
-	Pow float64 // smoothen small movements in input: raise to this power (1..∞)
+type StickFilter struct {
+	Name string
+	Args []interface{}
 }
 
-func NewAxisConfig() *AxisConfig {
-	return &AxisConfig{Min: 0.1, Max: 0.95, Pow: 2.0}
-}
-
-func (c *AxisConfig) update() {
-	if c.Min >= 1 {
-		c.Min = 0
-	}
-	if c.Max <= 0 {
-		c.Max = 1
-	}
-	if c.Pow < 1 {
-		c.Pow = 1
-	}
+var DefaultStickFilter = []StickFilter{
+	{"deadzone", []interface{}{0.1}},
+	{"multiplier", []interface{}{1.25}},
+	{"curvature", []interface{}{1.1}},
 }
 
 type TriggerConfig struct {

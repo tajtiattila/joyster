@@ -164,20 +164,9 @@ func (t *ticker) updateFlight() {
 }
 
 func (t *ticker) updateAxes() {
-	var lt, rt thumbStick
-	lt.set(t.gamepad.ThumbLX, t.gamepad.ThumbLY)
-	rt.set(t.gamepad.ThumbRX, t.gamepad.ThumbRY)
-	t.st.I.LX, t.st.I.LY = lt.values32()
-	t.st.I.RX, t.st.I.RY = rt.values32()
-	if t.config.ThumbCircle {
-		lt.circularize()
-		rt.circularize()
-	}
+	lx, ly := t.config.leftStickHandler(t.gamepad.ThumbLX, t.gamepad.ThumbLY)
+	rx, ry := t.config.rightStickHandler(t.gamepad.ThumbRX, t.gamepad.ThumbRY)
 
-	lx := float32(axismap(t.config.ThumbLX, lt.xv, lt.xs))
-	ly := float32(axismap(t.config.ThumbLY, lt.yv, lt.ys))
-	rx := float32(axismap(t.config.ThumbRX, rt.xv, rt.xs))
-	ry := float32(axismap(t.config.ThumbRY, rt.yv, rt.ys))
 	o := &t.st.O
 	if t.st.RollToYaw {
 		o.X = 0
