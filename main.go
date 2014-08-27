@@ -260,20 +260,25 @@ func abort(a ...interface{}) {
 
 func autoloadconfig(fn string) <-chan *Config {
 	ch := make(chan *Config)
-	if fi, err := os.Stat(fn); err != nil {
+	if fi, err := os.Stat(fn); err == nil {
 		t := fi.ModTime()
 		go func() {
 			for {
-				if fi, err := os.Stat(fn); err != nil && fi.ModTime().After(t) {
+				if fi, err := os.Stat(fn); err == nil && fi.ModTime().After(t) {
 					t = fi.ModTime()
 					cfg := new(Config)
 					if err := cfg.Load(fn); err == nil {
 						ch <- cfg
+						fmt.Println("new config loaded")
+					} else {
+						fmt.Println("config error:", err)
 					}
 				}
 				time.Sleep(time.Second)
 			}
 		}()
+	} else {
+		panic("autoloadcfg " + fn + err.Error())
 	}
 	return ch
 }
