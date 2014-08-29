@@ -14,6 +14,7 @@ var (
 	loadcfg  = flag.String("cfg", "", "configfile to use")
 	quiet    = flag.Bool("quiet", false, "don't print info at startup")
 	prtver   = flag.Bool("version", false, "print version and exit")
+	funcs    = flag.Bool("funcs", false, "print available functions and exit")
 	webgui   = flag.Bool("web", false, "enable web gui")
 	addr     = flag.String("addr", ":7489", "web gui address")  // "JY"
 	sharedir = flag.String("share", "share", "share directory") // "JY"
@@ -46,6 +47,13 @@ func main() {
 		if err != nil {
 			abort(err)
 		}
+		exit = true
+	}
+	if *funcs {
+		fmt.Println("Axis functions:")
+		axisFuncs.Print()
+		fmt.Println("Stick functions:")
+		stickFuncs.Print()
 		exit = true
 	}
 	if exit {
@@ -164,8 +172,22 @@ func (t *ticker) updateFlight() {
 }
 
 func (t *ticker) updateAxes() {
-	lx, ly := t.config.leftStickHandler(t.gamepad.ThumbLX, t.gamepad.ThumbLY)
-	rx, ry := t.config.rightStickHandler(t.gamepad.ThumbRX, t.gamepad.ThumbRY)
+	var ls, rs StickPos
+	ls.Init(t.gamepad.ThumbLX, t.gamepad.ThumbLY)
+	rs.Init(t.gamepad.ThumbRX, t.gamepad.ThumbRY)
+
+	i := &t.st.I
+	i.LX, i.LY = ls.Values()
+	i.RX, i.RY = rs.Values()
+
+	ls.Apply(t.config.leftStickLogic)
+	rs.Apply(t.config.rightStickLogic)
+
+	t.st.LXf, t.st.LYf = ls.Values()
+	t.st.RXf, t.st.RYf = rs.Values()
+
+	lx, ly := t.st.LXf, t.st.LYf
+	rx, ry := t.st.RXf, t.st.RYf
 
 	o := &t.st.O
 	if t.st.RollToYaw {

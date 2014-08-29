@@ -19,11 +19,12 @@ type Output struct {
 }
 
 type Status struct {
-	RollToYaw  bool
-	TriggerYaw bool
-	HeadLook   bool
-	I          Input
-	O          Output
+	RollToYaw          bool
+	TriggerYaw         bool
+	HeadLook           bool
+	I                  Input
+	LXf, LYf, RXf, RYf float32
+	O                  Output
 }
 
 ////////////////////////////////////////////////////////////////////////////////

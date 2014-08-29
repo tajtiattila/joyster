@@ -15,15 +15,15 @@ type Config struct {
 	TriggerAxis *TriggerAxisConfig // convert triggers to yaw/break
 	HeadLook    *HeadLookConfig
 
-	LeftStick  []StickFilter
-	RightStick []StickFilter
+	LeftStick  []interface{}
+	RightStick []interface{}
 
 	LeftTrigger  *TriggerConfig
 	RightTrigger *TriggerConfig
 	Buttons      []*ButtonConfig
 
-	leftStickHandler  StickHandler
-	rightStickHandler StickHandler
+	leftStickLogic  StickLogic
+	rightStickLogic StickLogic
 }
 
 func NewConfig() *Config {
@@ -105,10 +105,10 @@ func (c *Config) update() error {
 	c.RightTrigger.update()
 
 	var err error
-	if c.leftStickHandler, err = c.stickHandler(c.LeftStick); err != nil {
+	if c.leftStickLogic, err = c.stickLogic(c.LeftStick); err != nil {
 		return err
 	}
-	if c.rightStickHandler, err = c.stickHandler(c.RightStick); err != nil {
+	if c.rightStickLogic, err = c.stickLogic(c.RightStick); err != nil {
 		return err
 	}
 
@@ -137,25 +137,20 @@ func (c *Config) update() error {
 	return nil
 }
 
-type StickHandler func(xi, yi int16) (xo, yo float32)
-
-func (c *Config) stickHandler(fcv []StickFilter) (StickHandler, error) {
+func (c *Config) stickLogic(fcv []interface{}) (StickLogic, error) {
 	var fv []StickLogic
 	for _, fc := range fcv {
-		f, err := NewStickLogic(c, fc.Name, fc.Args)
+		f, err := NewStickLogic(c, fc)
 		if err != nil {
 			return nil, err
 		}
 		fv = append(fv, f)
 	}
-	var sp StickPos
-	return func(xi, yi int16) (xo, yo float32) {
-		sp.Init(xi, yi)
+	return StickFunc(func(sp *StickPos) {
 		for _, f := range fv {
 			sp.Apply(f)
 		}
-		return float32(sp.X), float32(sp.Y)
-	}, nil
+	}), nil
 }
 
 func (c *Config) tapDelayTicks() uint {
@@ -174,15 +169,10 @@ func (c *Config) keepPushedTicks() uint {
 	return n
 }
 
-type StickFilter struct {
-	Name string
-	Args []interface{}
-}
-
-var DefaultStickFilter = []StickFilter{
-	{"deadzone", []interface{}{0.1}},
-	{"multiplier", []interface{}{1.25}},
-	{"curvature", []interface{}{1.1}},
+var DefaultStickFilter = []interface{}{
+	[]interface{}{"deadzone", 0.1},
+	[]interface{}{"multiplier", 1.25},
+	[]interface{}{"curvature", 1.1},
 }
 
 type TriggerConfig struct {
