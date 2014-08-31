@@ -71,7 +71,7 @@ func (c *Config) Load(fn string) error {
 		return err
 	}
 	defer f.Close()
-	if err = json.NewDecoder(f).Decode(c); err != nil {
+	if err = json.NewDecoder(NewJSONMinifiedReader(f)).Decode(c); err != nil {
 		return err
 	}
 	return c.update()
