@@ -60,10 +60,21 @@ func main() {
 		return
 	}
 
+	if !*quiet {
+		fmt.Println("joyster version:", Version)
+		fmt.Println("vJoy version:", vjoy.Version())
+		fmt.Println("  Product:       ", vjoy.ProductString())
+		fmt.Println("  Manufacturer:  ", vjoy.ManufacturerString())
+		fmt.Println("  Serial number: ", vjoy.SerialNumberString())
+	}
+
 	if *loadcfg != "" {
 		err := cfg.Load(*loadcfg)
 		if err != nil {
 			abort(err)
+		}
+		if !*quiet {
+			fmt.Println(*loadcfg, "loaded")
 		}
 		cfgch = autoloadconfig(*loadcfg)
 	} else {
@@ -73,17 +84,13 @@ func main() {
 			cfg = NewConfig()
 			fmt.Println(err)
 		} else {
+			if !*quiet {
+				fmt.Println(fn, "loaded")
+			}
 			cfgch = autoloadconfig(fn)
 		}
 	}
 
-	if !*quiet {
-		fmt.Println("joyster version:", Version)
-		fmt.Println("vJoy version:", vjoy.Version())
-		fmt.Println("  Product:       ", vjoy.ProductString())
-		fmt.Println("  Manufacturer:  ", vjoy.ManufacturerString())
-		fmt.Println("  Serial number: ", vjoy.SerialNumberString())
-	}
 	d, err := vjoy.Acquire(1)
 	if err != nil {
 		abort(err)
@@ -280,7 +287,9 @@ func autoloadconfig(fn string) <-chan *Config {
 					cfg := new(Config)
 					if err := cfg.Load(fn); err == nil {
 						ch <- cfg
-						fmt.Println("new config loaded")
+						if !*quiet {
+							fmt.Println("new config loaded")
+						}
 					} else {
 						fmt.Println("config error:", err)
 					}
