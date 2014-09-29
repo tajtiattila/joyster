@@ -12,7 +12,6 @@ type stickblk struct {
 	x, y *float64
 }
 
-func (b *stickblk) NMinInput() int       { return 2 }
 func (b *stickblk) InputNames() []string { return []string{"x", "y"} }
 func (b *stickblk) SetInput(sel string, port Port) error {
 	var p **float64

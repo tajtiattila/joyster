@@ -31,7 +31,6 @@ type notblk struct {
 
 func (b *notblk) Tick() { b.o = !*b.i }
 
-func (b *notblk) NMinInput() int       { return 1 }
 func (b *notblk) InputNames() []string { return []string{""} }
 func (b *notblk) SetInput(sel string, port Port) error {
 	if sel != "" {
@@ -50,7 +49,6 @@ type mboolblk struct {
 	i1, i2 *bool
 }
 
-func (b *mboolblk) NMinInput() int       { return 2 }
 func (b *mboolblk) InputNames() []string { return []string{"1", "2"} }
 func (b *mboolblk) SetInput(sel string, port Port) error {
 	if sel != "1" && sel != "2" {
@@ -103,7 +101,6 @@ func (b *ifblk) Tick() {
 	b.tick()
 }
 
-func (b *ifblk) NMinInput() int       { return 3 }
 func (b *ifblk) InputNames() []string { return []string{"cond", "then", "else"} }
 func (b *ifblk) SetInput(sel string, port Port) error {
 	switch sel {

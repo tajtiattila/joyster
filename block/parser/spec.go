@@ -30,16 +30,8 @@ func (b *factoryblkspec) Prepare(c *context) (block.Block, error) {
 				return nil, srcerrf(b, "block type '%s' doesn't support inputs", b.typ)
 			}
 			names := is.InputNames()
-			if len(names) != is.NMinInput() {
-				if len(b.inputs) < is.NMinInput() {
-					return nil, srcerrf(b, "block type '%s' needs at least %d inputs, not %d", b.typ, is.NMinInput(), len(b.inputs))
-				} else if len(names) < len(b.inputs) {
-					return nil, srcerrf(b, "block type '%s' needs at most %d inputs, not %d", b.typ, len(names), len(b.inputs))
-				}
-			} else {
-				if len(b.inputs) != len(names) {
-					return nil, srcerrf(b, "block type '%s' needs exactly %d inputs, not %d", b.typ, len(names), len(b.inputs))
-				}
+			if len(b.inputs) != len(names) {
+				return nil, srcerrf(b, "block type '%s' needs exactly %d inputs, not %d", b.typ, len(names), len(b.inputs))
 			}
 			for i, input := range b.inputs {
 				cblk, err := input.Prepare(c)
@@ -156,7 +148,6 @@ type simplemultiblk struct {
 	v     []block.Block
 }
 
-func (b *simplemultiblk) NMinInput() int       { return len(b.names) }
 func (b *simplemultiblk) InputNames() []string { return b.names }
 
 func (b *simplemultiblk) SetInput(sel string, input block.Port) error {
@@ -195,7 +186,6 @@ type groupblk struct {
 	last  block.Block
 }
 
-func (g *groupblk) NMinInput() int       { return g.first.NMinInput() }
 func (g *groupblk) InputNames() []string { return g.first.InputNames() }
 
 func (g *groupblk) SetInput(sel string, input block.Port) error {

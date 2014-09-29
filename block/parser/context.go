@@ -38,6 +38,5 @@ type dummyBlock struct {
 func (b *dummyBlock) OutputNames() []string                      { return []string{""} }
 func (b *dummyBlock) Output(sel string) (block.Port, error)      { return &b.v, nil }
 func (b *dummyBlock) Setup(*block.Param) error                   { return nil }
-func (b *dummyBlock) NMinInput() int                             { return 0 }
 func (b *dummyBlock) InputNames() []string                       { return []string{""} }
 func (b *dummyBlock) SetInput(sel string, port block.Port) error { return nil }

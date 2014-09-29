@@ -38,7 +38,6 @@ type Ticker interface {
 
 // InputSetter is implementet by blocks with input(s) can set its inputs independently
 type InputSetter interface {
-	NMinInput() int       // minimal number of inputs, must be smaller or equal to len(InputNames())
 	InputNames() []string // names of all inputs. Mandatory first
 	SetInput(sel string, port Port) error
 }
