@@ -21,17 +21,8 @@ func (b *factoryblkspec) SourceLine() int { return b.lineno }
 func (b *factoryblkspec) Prepare(c *context) (block.Block, error) {
 	if b.blk == nil {
 		var err error
-		if b.blk, err = c.createBlock(b.typ); err != nil {
+		if b.blk, err = c.createBlock(b.typ, b.param); err != nil {
 			return nil, srcerr(b, err)
-		}
-		if b.param != nil {
-			sup, ok := b.blk.(block.Setupper)
-			if !ok {
-				return nil, srcerrf(b, "block type '%s' doesn't support parameters", b.typ)
-			}
-			if err = sup.Setup(b.param); err != nil {
-				return nil, srcerr(b, err)
-			}
 		}
 		if len(b.inputs) != 0 {
 			is, ok := b.blk.(block.InputSetter)
@@ -85,7 +76,7 @@ func (b *groupblkspec) Prepare(c *context) (block.Block, error) {
 	var last block.Block
 	var tickers []block.Ticker
 	for _, cblks := range b.v {
-		cblk, err := c.createBlock(cblks.typ)
+		cblk, err := c.createBlock(cblks.typ, cblks.param)
 		if err != nil {
 			return nil, srcerr(b, err)
 		}
@@ -97,7 +88,7 @@ func (b *groupblkspec) Prepare(c *context) (block.Block, error) {
 			if has(is.InputNames(), "") {
 				v := []block.Block{cblk}
 				for len(v) < len(is.InputNames()) {
-					xblk, err := c.createBlock(cblks.typ)
+					xblk, err := c.createBlock(cblks.typ, cblks.param)
 					if err != nil {
 						return nil, srcerr(b, err)
 					}

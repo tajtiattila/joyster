@@ -1,6 +1,8 @@
 package block
 
-import ()
+import (
+	"fmt"
+)
 
 // a block is a set of outputs
 type Block interface {
@@ -29,10 +31,6 @@ func PortString(p Port) string {
 	return "invalid"
 }
 
-type Setupper interface {
-	Setup(*Param) error
-}
-
 // ticker is an interface for blocks that needs update once upon each update tick.
 type Ticker interface {
 	Tick()
@@ -50,11 +48,25 @@ type Param struct {
 	N map[string]float64
 }
 
-type TypeMap map[string]func() Block
+type BlockFactory func(*Param) (Block, error)
+
+type TypeMap map[string]BlockFactory
 
 var DefaultTypeMap = make(TypeMap)
 
 func Register(name string, fn func() Block) {
+	if _, ok := DefaultTypeMap[name]; ok {
+		panic("duplicate name: " + name)
+	}
+	DefaultTypeMap[name] = func(p *Param) (Block, error) {
+		if p != nil {
+			return nil, fmt.Errorf("'%s' does not support parameters", name)
+		}
+		return fn(), nil
+	}
+}
+
+func RegisterParam(name string, fn BlockFactory) {
 	if _, ok := DefaultTypeMap[name]; ok {
 		panic("duplicate name: " + name)
 	}

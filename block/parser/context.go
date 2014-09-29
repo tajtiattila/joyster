@@ -12,9 +12,9 @@ type context struct {
 	rdep    []block.Ticker
 }
 
-func (c *context) createBlock(typ string) (block.Block, error) {
+func (c *context) createBlock(typ string, p *block.Param) (block.Block, error) {
 	if f, ok := block.DefaultTypeMap[typ]; ok {
-		return f(), nil
+		return f(p)
 	}
 	/*
 		f, ok := c.typemap[typ]
