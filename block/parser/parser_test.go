@@ -106,17 +106,17 @@ block fight [toggle input.back]
 block headlooktoggle [toggle input.rthumb]
 
 # left stick
-block ls0 {
-	[xy deadzone: 0.05]
-	[xy multiply: 1.25]
-	[xy curvature: 0.2]
+block ls0 { x y
+	$[deadzone: 0.05]
+	$[multiply: 1.25]
+	$[curvature: 0.2]
 }
 conn ls0.x input.lx
 conn ls0.y input.ly
 
-block ls1 {
-	[xy dampen: 0.2]
-	[xy smooth: 0.3]
+block ls1 { x y
+	$[dampen: 0.2]
+	$[smooth: 0.3]
 }
 conn ls1.x ls0.x
 conn ls1.y ls0.y
@@ -124,10 +124,10 @@ conn ls1.y ls0.y
 block ls [stick [absmin ls0.x ls1.x] [absmin ls0.x ls1.x]]
 
 # right stick
-block rs {
+block rs { x y
 	[circulardeadzone: 0.05]
-	[xy multiply: 1.25]
-	[xy curvature: 0.2]
+	$[multiply: 1.25]
+	$[curvature: 0.2]
 }
 conn rs.x input.rx
 conn rs.y input.ry

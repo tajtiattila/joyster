@@ -28,7 +28,7 @@ blockspec :=
 	{ newblockspec [newblockspec]* }
 newblockspec :=
 	'[' blocktype [portspecs] [':' arglist] ']'
-	'[' 'xy' blocktype [portspecs] [':' arglist] ']'
+	'$' '[' blocktype [':' arglist] ']'
 	'{' inputnames [blockspec]* '}'
 plugvalue :=
 	0
@@ -133,13 +133,13 @@ func (p *parser) parseimpl() {
 func (p *parser) parseblockspec(inputs bool) blockspec {
 	p.r.skiplinespace()
 	switch {
-	case p.r.ch() == '[':
+	case isblkdefstart(p.r.ch()):
 		return p.parsetypedblockspec(inputs)
 	case p.r.eatch('{'):
 		var names []string
 		for {
 			p.r.skipallspace()
-			if p.r.ch() == '[' {
+			if isblkdefstart(p.r.ch()) {
 				break
 			}
 			names = append(names, p.r.name())
@@ -147,7 +147,7 @@ func (p *parser) parseblockspec(inputs bool) blockspec {
 		grp := &groupblkspec{lineno: p.r.lineno(), sels: names}
 		for {
 			p.r.skipallspace()
-			if p.r.ch() != '[' {
+			if !isblkdefstart(p.r.ch()) {
 				if p.r.eatch('}') {
 					break
 				}
@@ -166,18 +166,14 @@ func (p *parser) parseblockspec(inputs bool) blockspec {
 }
 
 func (p *parser) parsetypedblockspec(inputs bool) *factoryblkspec {
+	dollar := p.r.eatch('$')
+	if dollar {
+		p.r.skiplinespace()
+	}
 	if !p.r.eatch('[') {
 		panic("invalid typed block spec")
 	}
-	blk := &factoryblkspec{lineno: p.r.lineno()}
-	n := p.r.name()
-	if n == "xy" {
-		blk.xy = true
-		p.r.skiplinespace()
-		blk.typ = p.r.name()
-	} else {
-		blk.typ = n
-	}
+	blk := &factoryblkspec{lineno: p.r.lineno(), dollar: dollar, typ: p.r.name()}
 	for {
 		p.r.skiplinespace()
 		if p.r.eatch(']') {
@@ -227,3 +223,7 @@ func (p *parser) parseparam() *block.Param {
 
 func constint(v int) *constblkspec   { return &constblkspec{&v} }
 func constbool(b bool) *constblkspec { return &constblkspec{&b} }
+
+func isblkdefstart(r rune) bool {
+	return r == '[' || r == '$'
+}

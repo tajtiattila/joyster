@@ -8,7 +8,7 @@ import (
 
 type factoryblkspec struct {
 	lineno int
-	xy     bool
+	dollar bool
 	typ    string
 	inputs []blockspec
 	param  *block.Param
@@ -21,38 +21,101 @@ func (b *factoryblkspec) SourceLine() int { return b.lineno }
 func (b *factoryblkspec) Prepare(c *context) (block.Block, error) {
 	if b.blk == nil {
 		var err error
-		if b.blk, err = c.createBlock(b.typ, b.param); err != nil {
+		if b.blk, err = b.create(c, false); err != nil {
 			return nil, srcerr(b, err)
 		}
-		if len(b.inputs) != 0 {
-			is, ok := b.blk.(block.InputSetter)
-			if !ok {
-				return nil, srcerrf(b, "block type '%s' doesn't support inputs", b.typ)
-			}
-			names := is.InputNames()
-			if len(b.inputs) != len(names) {
-				return nil, srcerrf(b, "block type '%s' needs exactly %d inputs, not %d", b.typ, len(names), len(b.inputs))
-			}
-			for i, input := range b.inputs {
-				cblk, err := input.Prepare(c)
-				if err != nil {
-					return nil, srcerr(b, err)
-				}
-				port, err := cblk.Output("")
-				if err != nil {
-					return nil, srcerr(b, err)
-				}
-				err = is.SetInput(names[i], port)
-				if err != nil {
-					return nil, srcerr(b, err)
-				}
-			}
-		}
-		if t, ok := b.blk.(block.Ticker); ok {
-			c.rdep = append(c.rdep, t)
+		if err = b.inputsetup(c, b.blk); err != nil {
+			return nil, err
 		}
 	}
 	return b.blk, nil
+}
+
+func (b *factoryblkspec) create(c *context, grp bool) (block.Block, error) {
+	if b.dollar {
+		xblk, err := c.createBlock(b.typ, b.param)
+		if err != nil {
+			return nil, srcerr(b, err)
+		}
+		yblk, err := c.createBlock(b.typ, b.param)
+		if err != nil {
+			return nil, srcerr(b, err)
+		}
+		if _, ok := xblk.(block.InputSetter); !ok {
+			return nil, srcerrf(b, "$ block '%s' must support inputs", b.typ)
+		}
+		if _, ok := yblk.(block.InputSetter); !ok {
+			return nil, srcerrf(b, "$ block '%s' must support inputs", b.typ)
+		}
+		return &xyblk{xblk, yblk}, nil
+	}
+	blk, err := c.createBlock(b.typ, b.param)
+	if err != nil {
+		return nil, srcerr(b, err)
+	}
+	return blk, nil
+}
+
+func (b *factoryblkspec) inputsetup(c *context, blk block.Block) error {
+	if len(b.inputs) != 0 {
+		is, ok := blk.(block.InputSetter)
+		if !ok {
+			return srcerrf(b, "block type '%s' doesn't accept inputs", b.typ)
+		}
+		names := is.InputNames()
+		if len(b.inputs) != len(names) {
+			return srcerrf(b, "block type '%s' needs exactly %d inputs, not %d", b.typ, len(names), len(b.inputs))
+		}
+		for i, input := range b.inputs {
+			cblk, err := input.Prepare(c)
+			if err != nil {
+				return srcerr(b, err)
+			}
+			port, err := cblk.Output("")
+			if err != nil {
+				return srcerr(b, err)
+			}
+			err = is.SetInput(names[i], port)
+			if err != nil {
+				return srcerr(b, err)
+			}
+			c.depends(blk, cblk)
+		}
+	}
+	return nil
+}
+
+type xyblk struct {
+	x, y block.Block
+}
+
+func (b *xyblk) OutputNames() []string { return []string{"x", "y"} }
+func (b *xyblk) Output(sel string) (block.Port, error) {
+	switch sel {
+	case "x":
+		return b.x.Output("")
+	case "y":
+		return b.y.Output("")
+	}
+	return nil, fmt.Errorf("'xy' has outputs 'x' and 'y', but not '%s'", sel)
+}
+
+func (b *xyblk) InputNames() []string { return []string{"x", "y"} }
+func (b *xyblk) SetInput(sel string, port block.Port) error {
+	var child block.Block
+	switch sel {
+	case "x":
+		child = b.x
+	case "y":
+		child = b.y
+	default:
+		return fmt.Errorf("'xy' has inputs 'x' and 'y', but not '%s'", sel)
+	}
+	is, ok := child.(block.InputSetter)
+	if !ok {
+		return fmt.Errorf("'xy' child '%s' doesn't accept inputs", sel)
+	}
+	return is.SetInput("", port)
 }
 
 type groupblkspec struct {
@@ -66,9 +129,8 @@ func (b *groupblkspec) SourceLine() int { return b.lineno }
 func (b *groupblkspec) Prepare(c *context) (block.Block, error) {
 	var first block.InputSetter
 	var last block.Block
-	var tickers []block.Ticker
 	for _, cblks := range b.v {
-		cblk, err := c.createBlock(cblks.typ, cblks.param)
+		cblk, err := cblks.create(c, true)
 		if err != nil {
 			return nil, srcerr(b, err)
 		}
@@ -76,33 +138,22 @@ func (b *groupblkspec) Prepare(c *context) (block.Block, error) {
 		if !ok {
 			return nil, srcerrf(cblks, "block type '%s' doesn't support inputs", cblks.typ)
 		}
-		if len(b.sels) != 0 {
-			if has(is.InputNames(), "") {
-				v := []block.Block{cblk}
-				for len(v) < len(is.InputNames()) {
-					xblk, err := c.createBlock(cblks.typ, cblks.param)
-					if err != nil {
-						return nil, srcerr(b, err)
-					}
-					v = append(v, xblk)
+		sels := b.sels
+		if len(sels) == 0 {
+			if !has(is.InputNames(), "") {
+				return nil, srcerrf(cblks, "block type '%s' has no unnamed input", cblks.typ)
+			}
+			if !has(cblk.OutputNames(), "") {
+				return nil, srcerrf(cblks, "block type '%s' has no unnamed output", cblks.typ)
+			}
+			sels = []string{""}
+		} else {
+			for _, n := range sels {
+				if !has(is.InputNames(), n) {
+					return nil, srcerrf(cblks, "block type '%s' has no input '%s'", cblks.typ, n)
 				}
-				if _, ok := cblk.(block.Ticker); ok {
-					mt := make([]block.Ticker, len(v))
-					for i := range v {
-						mt[i] = v[i].(block.Ticker)
-					}
-					cblk = &tickermultiblk{simplemultiblk{b.sels, v}, mt}
-				} else {
-					cblk = &simplemultiblk{b.sels, v}
-				}
-			} else {
-				for _, n := range b.sels {
-					if !has(is.InputNames(), n) {
-						return nil, srcerrf(cblks, "block type '%s' has no input '%s'", cblks.typ, n)
-					}
-					if !has(cblk.OutputNames(), n) {
-						return nil, srcerrf(cblks, "block type '%s' has no output '%s'", cblks.typ, n)
-					}
+				if !has(cblk.OutputNames(), n) {
+					return nil, srcerrf(cblks, "block type '%s' has no output '%s'", cblks.typ, n)
 				}
 			}
 		}
@@ -119,17 +170,9 @@ func (b *groupblkspec) Prepare(c *context) (block.Block, error) {
 					return nil, srcerr(b, err)
 				}
 			}
+			c.depends(cblk, last)
 		}
 		last = cblk
-		if t, ok := cblk.(block.Ticker); ok {
-			tickers = append(tickers, t)
-		}
-	}
-	for len(tickers) > 0 {
-		var t block.Ticker
-		n := len(tickers) - 1
-		t, tickers = tickers[n], tickers[:n]
-		c.rdep = append(c.rdep, t)
 	}
 	return &groupblk{first, last}, nil
 }

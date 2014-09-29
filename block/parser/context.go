@@ -9,7 +9,7 @@ type context struct {
 	typemap map[string](func() block.Block)
 	blocks  map[string]blockspec
 	conns   []connspec
-	rdep    []block.Ticker
+	deps    map[block.Block][]block.Block
 }
 
 func (c *context) createBlock(typ string, p *block.Param) (block.Block, error) {
@@ -26,6 +26,13 @@ func (c *context) createBlock(typ string, p *block.Param) (block.Block, error) {
 	return &dummyBlock{typ, false}, nil
 }
 
+func (c *context) depends(blk, dependency block.Block) {
+	if c.deps == nil {
+		c.deps = make(map[block.Block][]block.Block)
+	}
+	c.deps[blk] = append(c.deps[blk], dependency)
+}
+
 type blockspec interface {
 	Prepare(c *context) (block.Block, error)
 }
@@ -37,6 +44,5 @@ type dummyBlock struct {
 
 func (b *dummyBlock) OutputNames() []string                      { return []string{""} }
 func (b *dummyBlock) Output(sel string) (block.Port, error)      { return &b.v, nil }
-func (b *dummyBlock) Setup(*block.Param) error                   { return nil }
 func (b *dummyBlock) InputNames() []string                       { return []string{""} }
 func (b *dummyBlock) SetInput(sel string, port block.Port) error { return nil }
