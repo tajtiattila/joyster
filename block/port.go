@@ -5,6 +5,19 @@ import (
 	"fmt"
 )
 
+// hat values are bitmasks
+const (
+	HatCentre = 0
+
+	HatNorth = 1
+	HatEast  = 2
+	HatSouth = 4
+	HatWest  = 8
+
+	HatMask = 15
+	HatMax  = 16
+)
+
 type InputMap interface {
 	Names() []string
 	Set(sel string, port Port) error
