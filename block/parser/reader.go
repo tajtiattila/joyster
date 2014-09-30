@@ -43,11 +43,6 @@ func (r *sourcereader) haslen(siz int) bool {
 	return r.pos+siz <= len(r.src)
 }
 
-func (r *sourcereader) skipch() {
-	_, siz := utf8.DecodeRune(r.src[r.pos:])
-	r.pos += siz
-}
-
 func (r *sourcereader) endstatement() {
 	ok := false
 	for !r.eof() {
@@ -56,7 +51,10 @@ func (r *sourcereader) endstatement() {
 		case '#':
 			r.skipline()
 			ok = true
-		case ';', '\n':
+		case '\n':
+			r.nline++
+			fallthrough
+		case ';':
 			ok = true
 			fallthrough
 		case ' ', '\t':

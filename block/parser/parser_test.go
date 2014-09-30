@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"github.com/tajtiattila/joyster/block"
+	_ "github.com/tajtiattila/joyster/block/logic"
 	"testing"
 )
 
@@ -10,7 +11,7 @@ var testsrc = []byte(`
 block input [gamepad: 0]
 block output [vjoy: 1]
 
-set Update=1m TapDelay=200m KeepPushed=250m
+set update=1m tapdelay=200m keeppushed=250m
 
 # axes
 
@@ -18,8 +19,8 @@ conn output.x [if [or [not fight] [not rolltoyaw]] ls.x 0]
 conn output.y ls.y
 conn output.z [add [if rolltoyaw ls.x 0] [if [not fight] ta 0]]
 
-conn output.rx [if [not headlooktoggle] rs.x]
-conn output.ry [if [not headlooktoggle] rs.y]
+conn output.rx [if [not headlooktoggle] rs.x 0]
+conn output.ry [if [not headlooktoggle] rs.y 0]
 conn output.u headlook.x
 conn output.v headlook.y
 
@@ -30,9 +31,9 @@ conn output.2 bbtn
 conn output.3 xbtn
 conn output.4 ybtn.1
 
-conn output.5 abtn.double
-conn output.6 bbtn.double
-conn output.7 xbtn.double
+conn output.5 abtn.2
+conn output.6 bbtn.2
+conn output.7 xbtn.2
 conn output.8 ybtn.2
 
 conn output.9 shift0
@@ -48,6 +49,9 @@ conn output.16 [if plane2 input.buttonb off]
 conn output.17 [if plane2 input.buttonx off]
 conn output.18 [if plane2 input.buttony off]
 
+conn output.19 [gt input.ltrigger 0.15]
+conn output.20 [gt input.rtrigger 0.15]
+
 conn output.21 [if plane3 input.buttona off]
 conn output.22 [if plane3 input.buttonb off]
 conn output.23 [if plane3 input.buttonx off]
@@ -60,13 +64,13 @@ conn output.24 [if plane3 input.buttony off]
 # Up: target ahead
 # Down: highest threat
 # Left/Right: prev/next subsystem
-conn output.hat1 [if plane0 input.dpad hatoff]
+conn output.hat1 [if plane0 input.dpad centre]
 
 # LS + D-Pad: targeting extra
 
 # Up/Down: prev/next hostile
 # Left/Right: prev/next ship
-conn output.hat2 [if plane1 input.dpad hatoff]
+conn output.hat2 [if plane1 input.dpad centre]
 
 # RS + D-Pad: toggles (hardpoint, landing gear, flight assist, cargo scoop)
 
@@ -74,7 +78,7 @@ conn output.hat2 [if plane1 input.dpad hatoff]
 # Down: landing gear
 # Left: flight assist
 # Right: cargo scoop
-conn output.hat3 [if plane2 input.dpad hatoff]
+conn output.hat3 [if plane2 input.dpad centre]
 
 # LS + RS + dpad: misc. cycles, stealth
 
@@ -82,7 +86,7 @@ conn output.hat3 [if plane2 input.dpad hatoff]
 # Left: cycle fire group next
 # Right: silent running
 # Down: deploy heatsink
-conn output.hat4 [if plane3 input.dpad hatoff]
+conn output.hat4 [if plane3 input.dpad centre]
 
 # logic
 block shift0 input.lbumper
@@ -93,7 +97,7 @@ block plane1 [and shift0 [not shift1]]
 block plane2 [and [not shift0] shift1]
 block plane3 [and shift0 shift1]
 
-block ta [triggeraxis input.ltrigger input.rtrigger]
+block ta [triggeraxis input.ltrigger input.rtrigger: AxisThreshold=0.15 BreakThreshold=0.05 Exp=1.5]
 
 block abtn [multibutton [if plane0 input.buttona off]: 2]
 
@@ -101,7 +105,7 @@ block bbtn [multibutton [if plane0 input.buttonb off]: 2]
 
 block xbtn [multibutton [if plane0 input.buttonx off]: 2]
 
-block ybtn [tapmultibutton [if plane0 input.buttony off]: 2]
+block ybtn [multibutton [if plane0 input.buttony off]: 2]
 
 block rolltoyaw [toggle input.lthumb]
 block fight [toggle input.back]
@@ -137,6 +141,7 @@ conn rs.y input.ry
 block headlook [headlook: MovePerSec=2.0 AutoCenterDist=0.2 AutoCenterAccel=0.001 JumpToCenterAccel=0.1]
 conn headlook.x [if headlooktoggle rs.x 0]
 conn headlook.y [if headlooktoggle rs.y 0]
+conn headlook.enable headlooktoggle
 `)
 
 var vjoyblkmap = make(map[string]interface{})
@@ -144,13 +149,16 @@ var inputblkmap = make(map[string]interface{})
 
 func init() {
 	for _, n := range []string{"x", "y", "z", "rx", "ry", "rz", "u", "v"} {
-		vjoyblkmap[n] = new(float64)
+		v := new(float64)
+		vjoyblkmap[n] = &v
 	}
 	for i := 1; i <= 32; i++ {
-		vjoyblkmap[fmt.Sprint(i)] = new(bool)
+		v := new(bool)
+		vjoyblkmap[fmt.Sprint(i)] = &v
 	}
 	for i := 1; i <= 4; i++ {
-		vjoyblkmap[fmt.Sprint("hat", i)] = new(int)
+		v := new(int)
+		vjoyblkmap[fmt.Sprint("hat", i)] = &v
 	}
 	block.RegisterParam("vjoy", func(p block.Param) (block.Block, error) {
 		_ = p.Arg("device")
@@ -171,45 +179,15 @@ func init() {
 	})
 }
 
-type testvjoyblk struct {
-}
+type testvjoyblk struct{}
 
-func (*testvjoyblk) OutputNames() []string { return nil }
-func (*testvjoyblk) Output(sel string) (block.Port, error) {
-	return nil, fmt.Errorf("vjoy has no port '%s'", sel)
-}
+func (*testvjoyblk) Output() block.OutputMap { return nil }
+func (*testvjoyblk) Input() block.InputMap   { return block.MapInput("vjoy", vjoyblkmap) }
 
-func (*testvjoyblk) InputNames() []string {
-	var names []string
-	for n := range vjoyblkmap {
-		names = append(names, n)
-	}
-	return names
-}
+type testgamepadblk struct{}
 
-func (*testvjoyblk) SetInput(sel string, port block.Port) error {
-	if _, ok := vjoyblkmap[sel]; ok {
-		return nil
-	}
-	return fmt.Errorf("vjoy has no port '%s'", sel)
-}
-
-type testgamepadblk struct {
-}
-
-func (*testgamepadblk) OutputNames() []string {
-	var v []string
-	for n, _ := range inputblkmap {
-		v = append(v, n)
-	}
-	return v
-}
-func (*testgamepadblk) Output(sel string) (block.Port, error) {
-	if p, ok := inputblkmap[sel]; ok {
-		return p, nil
-	}
-	return nil, fmt.Errorf("gamepad has no port '%s'", sel)
-}
+func (*testgamepadblk) Output() block.OutputMap { return block.MapOutput("gamepad", inputblkmap) }
+func (*testgamepadblk) Input() block.InputMap   { return nil }
 
 func TestParser(t *testing.T) {
 	p := newparser(testsrc)

@@ -1,7 +1,6 @@
 package block
 
 import (
-	"fmt"
 	"math"
 )
 
@@ -41,30 +40,8 @@ type mathopblk struct {
 	tick   func(a, b float64) float64
 }
 
-func (b *mathopblk) Tick() {
-	b.o = b.tick(*b.i1, *b.i2)
+func (b *mathopblk) Tick() { b.o = b.tick(*b.i1, *b.i2) }
+func (b *mathopblk) Input() InputMap {
+	return MapInput(b.typ, map[string]interface{}{"1": &b.i1, "2": &b.i2})
 }
-
-func (b *mathopblk) InputNames() []string { return []string{"1", "2"} }
-func (b *mathopblk) SetInput(sel string, port Port) error {
-	if sel != "1" && sel != "2" {
-		return fmt.Errorf("'%s' has inputs '1' and '2', but not '%s'", b.typ, sel)
-	}
-	i, ok := port.(*float64)
-	if !ok {
-		return fmt.Errorf("'%s' block needs scalar for '%s', not %s", b.typ, sel, PortString(port))
-	}
-	if sel == "1" {
-		b.i1 = i
-	} else {
-		b.i2 = i
-	}
-	return nil
-}
-func (b *mathopblk) OutputNames() []string { return []string{""} }
-func (b *mathopblk) Output(sel string) (Port, error) {
-	if sel != "" {
-		return nil, fmt.Errorf("'%s' block has no named output '%s'", b.typ, sel)
-	}
-	return &b.o, nil
-}
+func (b *mathopblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }

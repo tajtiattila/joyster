@@ -1,41 +1,15 @@
 package block
 
-// a block is a set of outputs
+// a block is a set of inputs and outputs
+// producer blocks may have nil inputs, and sink blocks may have nil outputs
 type Block interface {
-	OutputNames() []string
-	Output(sel string) (Port, error)
-}
-
-// one of:
-//  *float64 // axis
-//  *bool // button, flag
-//  *int // hat
-type Port interface{}
-
-func PortString(p Port) string {
-	if p == nil {
-		return "uninitialized"
-	}
-	switch p.(type) {
-	case *bool:
-		return "bool"
-	case *float64:
-		return "axis"
-	case *int:
-		return "hat"
-	}
-	return "invalid"
+	Input() InputMap
+	Output() OutputMap
 }
 
 // ticker is an interface for blocks that needs update once upon each update tick.
 type Ticker interface {
 	Tick()
-}
-
-// InputSetter is implementet by blocks with input(s) can set its inputs independently
-type InputSetter interface {
-	InputNames() []string // names of all inputs. Mandatory first
-	SetInput(sel string, port Port) error
 }
 
 type BlockFactory func(Param) (Block, error)

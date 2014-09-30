@@ -1,19 +1,12 @@
 package block
 
-import (
-	"fmt"
-)
-
 func RegisterScalarFunc(name string, fn func(Param) (func(float64) float64, error)) {
 	RegisterParam(name, func(p Param) (Block, error) {
 		f, err := fn(p)
 		if err != nil {
 			return nil, err
 		}
-		return &scalarfnblk{
-			typ: name,
-			f:   f,
-		}, nil
+		return &scalarfnblk{typ: name, f: f}, nil
 	})
 }
 
@@ -24,27 +17,23 @@ type scalarfnblk struct {
 	f   func(float64) float64
 }
 
-func (b *scalarfnblk) Tick() { b.o = b.f(*b.i) }
+func (b *scalarfnblk) Tick()             { b.o = b.f(*b.i) }
+func (b *scalarfnblk) Input() InputMap   { return SingleInput(b.typ, &b.i) }
+func (b *scalarfnblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
 
-func (b *scalarfnblk) InputNames() []string { return []string{""} }
-func (b *scalarfnblk) SetInput(sel string, port Port) error {
-	if sel != "" {
-		return fmt.Errorf("'%s' has no input named '%s'", b.typ, sel)
-	}
-	var ok bool
-	b.i, ok = port.(*float64)
-	if !ok {
-		return fmt.Errorf("'%s' needs scalar input, not %s", b.typ, PortString(port))
-	}
-	return nil
-}
-
-func (b *scalarfnblk) OutputNames() []string { return []string{""} }
-func (b *scalarfnblk) Output(sel string) (Port, error) {
-	if sel != "" {
-		return nil, fmt.Errorf("'%s' has no output named '%s'", b.typ, sel)
-	}
-	return &b.o, nil
+func init() {
+	RegisterBoolFunc("toggle", func(Param) (func(bool) bool, error) {
+		var val, last bool
+		return func(v bool) bool {
+			if v != last {
+				last = v
+				if v {
+					val = !val
+				}
+			}
+			return val
+		}, nil
+	})
 }
 
 func RegisterBoolFunc(name string, fn func(Param) (func(bool) bool, error)) {
@@ -53,10 +42,7 @@ func RegisterBoolFunc(name string, fn func(Param) (func(bool) bool, error)) {
 		if err != nil {
 			return nil, err
 		}
-		return &boolfnblk{
-			typ: name,
-			f:   f,
-		}, nil
+		return &boolfnblk{typ: name, f: f}, nil
 	})
 }
 
@@ -67,28 +53,38 @@ type boolfnblk struct {
 	f   func(bool) bool
 }
 
-func (b *boolfnblk) Tick() { b.o = b.f(*b.i) }
+func (b *boolfnblk) Tick()             { b.o = b.f(*b.i) }
+func (b *boolfnblk) Input() InputMap   { return SingleInput(b.typ, &b.i) }
+func (b *boolfnblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
 
-func (b *boolfnblk) InputNames() []string { return []string{""} }
-func (b *boolfnblk) SetInput(sel string, port Port) error {
-	if sel != "" {
-		return fmt.Errorf("'%s' has no input named '%s'", b.typ, sel)
-	}
-	var ok bool
-	b.i, ok = port.(*bool)
-	if !ok {
-		return fmt.Errorf("'%s' needs bool input, not %s", b.typ, PortString(port))
-	}
-	return nil
+type StickFunc func(xi, yi float64) (xo, yo float64)
+
+func RegisterStickFunc(name string, ff func(p Param) (StickFunc, error)) {
+	RegisterParam(name, func(p Param) (Block, error) {
+		f, err := ff(p)
+		if err != nil {
+			return nil, err
+		}
+		return &stickfuncblk{typ: name, f: f}, nil
+	})
 }
 
-func (b *boolfnblk) OutputNames() []string { return []string{""} }
-func (b *boolfnblk) Output(sel string) (Port, error) {
-	if sel != "" {
-		return nil, fmt.Errorf("'%s' has no output named '%s'", b.typ, sel)
-	}
-	return &b.o, nil
+type stickfuncblk struct {
+	typ    string
+	xi, yi *float64
+	xo, yo float64
+	f      func(xi, yi float64) (xo, yo float64)
 }
+
+func (b *stickfuncblk) Input() InputMap {
+	return MapInput(b.typ, map[string]interface{}{"x": &b.xi, "y": &b.yi})
+}
+
+func (b *stickfuncblk) Output() OutputMap {
+	return MapOutput(b.typ, map[string]interface{}{"x": &b.xo, "y": &b.yo})
+}
+
+func (b *stickfuncblk) Tick() { b.xo, b.yo = b.f(*b.xi, *b.yi) }
 
 func init() {
 	Register("stick", func() Block { return new(stickblk) })
@@ -98,32 +94,10 @@ type stickblk struct {
 	x, y *float64
 }
 
-func (b *stickblk) InputNames() []string { return []string{"x", "y"} }
-func (b *stickblk) SetInput(sel string, port Port) error {
-	var p **float64
-	switch sel {
-	case "x":
-		p = &b.x
-	case "y":
-		p = &b.y
-	default:
-		return fmt.Errorf("stick block has no input named '%s'", sel)
-	}
-	var ok bool
-	*p, ok = port.(*float64)
-	if !ok {
-		return fmt.Errorf("stick block needs scalar input, not %s", PortString(port))
-	}
-	return nil
+func (b *stickblk) Input() InputMap {
+	return MapInput("stick", map[string]interface{}{"x": &b.x, "y": &b.y})
 }
 
-func (b *stickblk) OutputNames() []string { return []string{"x", "y"} }
-func (b *stickblk) Output(sel string) (Port, error) {
-	switch sel {
-	case "x":
-		return b.x, nil
-	case "y":
-		return b.y, nil
-	}
-	return nil, fmt.Errorf("stick block has no output named '%s'", sel)
+func (b *stickblk) Output() OutputMap {
+	return MapOutput("stick", map[string]interface{}{"x": b.x, "y": b.y})
 }

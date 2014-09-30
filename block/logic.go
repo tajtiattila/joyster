@@ -6,53 +6,30 @@ import (
 
 func RegisterLogicFunc(name string, fn func(a, b bool) bool) {
 	Register(name, func() Block {
-		return &logicopblk{boolblk: boolblk{typ: name}, tick: fn}
+		return &logicopblk{typ: name, tick: fn}
 	})
 }
 
 func init() {
-	Register("not", func() Block { return &notblk{boolblk: boolblk{typ: "not"}} })
+	Register("not", func() Block { return new(notblk) })
 	RegisterLogicFunc("and", func(a, b bool) bool { return a && b })
 	RegisterLogicFunc("or", func(a, b bool) bool { return a || b })
 	RegisterLogicFunc("xor", func(a, b bool) bool { return a != b })
 	Register("if", func() Block { return new(ifblk) })
 }
 
-type boolblk struct {
-	typ string
-	o   bool
-}
-
 type notblk struct {
-	boolblk
+	o bool
 	i *bool
 }
 
-func (b *notblk) Tick() { b.o = !*b.i }
-
-func (b *boolblk) OutputNames() []string { return []string{""} }
-func (b *boolblk) Output(sel string) (Port, error) {
-	if sel != "" {
-		return nil, fmt.Errorf("'%s' block has no named output '%s'", b.typ, sel)
-	}
-	return &b.o, nil
-}
-
-func (b *notblk) InputNames() []string { return []string{""} }
-func (b *notblk) SetInput(sel string, port Port) error {
-	if sel != "" {
-		return fmt.Errorf("'not' block has no named input '%s'", sel)
-	}
-	i, ok := port.(*bool)
-	if !ok {
-		return fmt.Errorf("'not' block needs bool, not %s", PortString(port))
-	}
-	b.i = i
-	return nil
-}
+func (b *notblk) Tick()             { b.o = !*b.i }
+func (b *notblk) Input() InputMap   { return SingleInput("not", &b.i) }
+func (b *notblk) Output() OutputMap { return SingleOutput("not", &b.o) }
 
 type logicopblk struct {
-	boolblk
+	typ    string
+	o      bool
 	i1, i2 *bool
 	tick   func(a, b bool) bool
 }
@@ -61,22 +38,10 @@ func (b *logicopblk) Tick() {
 	b.o = b.tick(*b.i1, *b.i2)
 }
 
-func (b *logicopblk) InputNames() []string { return []string{"1", "2"} }
-func (b *logicopblk) SetInput(sel string, port Port) error {
-	if sel != "1" && sel != "2" {
-		return fmt.Errorf("'%s' has inputs '1' and '2', but not '%s'", b.typ, sel)
-	}
-	i, ok := port.(*bool)
-	if !ok {
-		return fmt.Errorf("'%s' block needs bool, not %s", b.typ, PortString(port))
-	}
-	if sel == "1" {
-		b.i1 = i
-	} else {
-		b.i2 = i
-	}
-	return nil
+func (b *logicopblk) Input() InputMap {
+	return MapInput(b.typ, map[string]interface{}{"1": &b.i1, "2": &b.i2})
 }
+func (b *logicopblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
 
 type ifblk struct {
 	cond             *bool
@@ -86,23 +51,17 @@ type ifblk struct {
 	tick func()
 }
 
-func (b *ifblk) OutputNames() []string { return []string{""} }
-func (b *ifblk) Output(sel string) (Port, error) {
-	if sel != "" {
-		return nil, fmt.Errorf("if block has no named output '%s'", sel)
-	}
-	if b.out == nil {
-		return nil, fmt.Errorf("unitialized if block")
-	}
-	return &b.out, nil
+func (b *ifblk) Output() OutputMap { return SingleOutput("if", b.out) }
+func (b *ifblk) Input() InputMap   { return &ifinput{b} }
+func (b *ifblk) Tick()             { b.tick() }
+
+type ifinput struct {
+	b *ifblk
 }
 
-func (b *ifblk) Tick() {
-	b.tick()
-}
-
-func (b *ifblk) InputNames() []string { return []string{"cond", "then", "else"} }
-func (b *ifblk) SetInput(sel string, port Port) error {
+func (inp *ifinput) Names() []string { return []string{"cond", "then", "else"} }
+func (inp *ifinput) Set(sel string, port Port) error {
+	b := inp.b
 	switch sel {
 	case "cond":
 		var ok bool
@@ -119,7 +78,7 @@ func (b *ifblk) SetInput(sel string, port Port) error {
 	}
 	if b.valthen != nil && b.valelse != nil {
 		if !matchport(b.valthen, b.valelse) {
-			return fmt.Errorf("then and else must have the same type", sel)
+			return fmt.Errorf("then and else must have the same type, has %s and %s", PortString(b.valthen), PortString(b.valelse))
 		}
 		switch th := b.valthen.(type) {
 		case *bool:

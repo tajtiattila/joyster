@@ -28,6 +28,7 @@ func (spec namedparamspec) Prepare(c *context) param {
 	return &namedparam{
 		m:       spec,
 		globals: c.config,
+		used:    make(map[string]bool),
 	}
 }
 
@@ -71,7 +72,7 @@ func (p *positionalparam) TickFreq() float64 {
 }
 
 func (p *positionalparam) TickTime() float64 {
-	return p.OptArg("Update", block.DefaultTickTime)
+	return p.OptArg("update", block.DefaultTickTime)
 }
 
 func (p *positionalparam) err() error {
@@ -110,7 +111,7 @@ func (p *namedparam) TickFreq() float64 {
 }
 
 func (p *namedparam) TickTime() float64 {
-	return p.OptArg("Update", block.DefaultTickTime)
+	return p.OptArg("update", block.DefaultTickTime)
 }
 
 func (p *namedparam) val(n string, def float64) (v float64, ok bool) {

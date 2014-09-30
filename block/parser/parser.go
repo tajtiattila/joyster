@@ -1,10 +1,5 @@
 package parser
 
-import (
-	"fmt"
-	"github.com/tajtiattila/joyster/block"
-)
-
 /*
 stmt :=
 	'block' name blockspec
@@ -48,15 +43,23 @@ func newparser(p []byte) *parser {
 		context: &context{
 			config: make(map[string]float64),
 			specs: map[string]blockspec{
-				"true":      constbool(true),
-				"on":        constbool(true),
-				"false":     constbool(false),
-				"off":       constbool(false),
-				"hat_off":   constint(-1),
-				"hat_north": constint(0),
-				"hat_east":  constint(1),
-				"hat_south": constint(2),
-				"hat_west":  constint(3),
+				"true":       constbool(true),
+				"on":         constbool(true),
+				"false":      constbool(false),
+				"off":        constbool(false),
+				"hat_off":    constint(-1),
+				"hat_centre": constint(-1),
+				"hat_center": constint(-1),
+				"hat_north":  constint(0),
+				"hat_east":   constint(1),
+				"hat_south":  constint(2),
+				"hat_west":   constint(3),
+				"centre":     constint(-1),
+				"center":     constint(-1),
+				"north":      constint(0),
+				"east":       constint(1),
+				"south":      constint(2),
+				"west":       constint(3),
 			},
 		},
 		r: &sourcereader{src: p},
@@ -111,20 +114,23 @@ func (p *parser) parse() (err error) {
 		if err != nil {
 			return srcerr(p.r, err)
 		}
-		is, ok := tblk.(block.InputSetter)
-		fmt.Printf("%d %#v %#v\n", c.lineno, tblk, is)
-		if !ok {
-			return srcerrf(p.r, "can't set input on '%s'", c.name)
+		is := tblk.Input()
+		if is == nil {
+			return srcerrf(p.r, "conn target %s has no inputs", c.name)
 		}
 		sblk, err := c.blockspec.Prepare(p.context)
 		if err != nil {
 			return srcerr(p.r, err)
 		}
-		port, err := sblk.Output(c.sel)
+		os := sblk.Output()
+		if os == nil {
+			return srcerrf(p.r, "source of conn %s has no outputs", c.name)
+		}
+		port, err := os.Get("")
 		if err != nil {
 			return srcerr(p.r, err)
 		}
-		is.SetInput(c.sel, port)
+		is.Set(c.sel, port)
 	}
 	return
 }
