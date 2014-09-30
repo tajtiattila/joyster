@@ -20,6 +20,7 @@ type scalarfnblk struct {
 func (b *scalarfnblk) Tick()             { b.o = b.f(*b.i) }
 func (b *scalarfnblk) Input() InputMap   { return SingleInput(b.typ, &b.i) }
 func (b *scalarfnblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
+func (b *scalarfnblk) Validate() error   { return CheckInputs(b.typ, &b.i) }
 
 func init() {
 	RegisterBoolFunc("toggle", func(Param) (func(bool) bool, error) {
@@ -56,6 +57,7 @@ type boolfnblk struct {
 func (b *boolfnblk) Tick()             { b.o = b.f(*b.i) }
 func (b *boolfnblk) Input() InputMap   { return SingleInput(b.typ, &b.i) }
 func (b *boolfnblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
+func (b *boolfnblk) Validate() error   { return CheckInputs(b.typ, &b.i) }
 
 type StickFunc func(xi, yi float64) (xo, yo float64)
 
@@ -84,7 +86,8 @@ func (b *stickfuncblk) Output() OutputMap {
 	return MapOutput(b.typ, map[string]interface{}{"x": &b.xo, "y": &b.yo})
 }
 
-func (b *stickfuncblk) Tick() { b.xo, b.yo = b.f(*b.xi, *b.yi) }
+func (b *stickfuncblk) Validate() error { return CheckInputs(b.typ, &b.xi, &b.yi) }
+func (b *stickfuncblk) Tick()           { b.xo, b.yo = b.f(*b.xi, *b.yi) }
 
 func init() {
 	Register("stick", func() Block { return new(stickblk) })
@@ -101,3 +104,5 @@ func (b *stickblk) Input() InputMap {
 func (b *stickblk) Output() OutputMap {
 	return MapOutput("stick", map[string]interface{}{"x": b.x, "y": b.y})
 }
+
+func (b *stickblk) Validate() error { return CheckInputs("stick", &b.x, &b.y) }

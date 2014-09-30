@@ -5,7 +5,7 @@ import (
 )
 
 type paramspec interface {
-	Prepare(c *context) param
+	Prepare(c *Context) param
 }
 
 type param interface {
@@ -15,7 +15,7 @@ type param interface {
 
 type posparamspec []float64
 
-func (spec posparamspec) Prepare(c *context) param {
+func (spec posparamspec) Prepare(c *Context) param {
 	return &positionalparam{
 		v:       spec,
 		globals: c.config,
@@ -24,7 +24,7 @@ func (spec posparamspec) Prepare(c *context) param {
 
 type namedparamspec map[string]float64
 
-func (spec namedparamspec) Prepare(c *context) param {
+func (spec namedparamspec) Prepare(c *Context) param {
 	return &namedparam{
 		m:       spec,
 		globals: c.config,

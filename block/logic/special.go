@@ -57,6 +57,10 @@ func (l *viewaccumulatelogic) Output() block.OutputMap {
 	})
 }
 
+func (l *viewaccumulatelogic) Validate() error {
+	return block.CheckInputs("headlook", &l.enable, &l.xi, &l.yi)
+}
+
 func (l *viewaccumulatelogic) Tick() {
 	if *l.enable {
 		xv, yv := float64(*l.xi), float64(*l.yi)
@@ -144,6 +148,8 @@ func (t *triggeraxis) Output() block.OutputMap {
 		"break": &t.brk,
 	})
 }
+
+func (t *triggeraxis) Validate() error { return block.CheckInputs("triggeraxis", &t.left, &t.right) }
 
 func (t *triggeraxis) Tick() {
 	lv, rv := *t.left, *t.right

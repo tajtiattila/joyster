@@ -26,6 +26,7 @@ type notblk struct {
 func (b *notblk) Tick()             { b.o = !*b.i }
 func (b *notblk) Input() InputMap   { return SingleInput("not", &b.i) }
 func (b *notblk) Output() OutputMap { return SingleOutput("not", &b.o) }
+func (b *notblk) Validate() error   { return CheckInputs("not", &b.i) }
 
 type logicopblk struct {
 	typ    string
@@ -42,6 +43,7 @@ func (b *logicopblk) Input() InputMap {
 	return MapInput(b.typ, map[string]interface{}{"1": &b.i1, "2": &b.i2})
 }
 func (b *logicopblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
+func (b *logicopblk) Validate() error   { return CheckInputs("not", &b.i1, &b.i2) }
 
 type ifblk struct {
 	cond             *bool
@@ -53,7 +55,10 @@ type ifblk struct {
 
 func (b *ifblk) Output() OutputMap { return SingleOutput("if", b.out) }
 func (b *ifblk) Input() InputMap   { return &ifinput{b} }
-func (b *ifblk) Tick()             { b.tick() }
+func (b *ifblk) Validate() error {
+	return CheckInputs("if", &b.cond, portpt(b.valthen), portpt(b.valelse))
+}
+func (b *ifblk) Tick() { b.tick() }
 
 type ifinput struct {
 	b *ifblk
@@ -68,6 +73,9 @@ func (inp *ifinput) Set(sel string, port Port) error {
 		b.cond, ok = port.(*bool)
 		if !ok {
 			return fmt.Errorf("if block needs bool condition, not %s", PortString(port))
+		}
+		if b.cond == nil {
+			return fmt.Errorf("if block 'cond' input is nil")
 		}
 	case "then":
 		b.valthen = port
@@ -123,6 +131,8 @@ func (inp *ifinput) Set(sel string, port Port) error {
 					*o = *el
 				}
 			}
+		default:
+			return fmt.Errorf("'if' internal error")
 		}
 	}
 	return nil
@@ -139,4 +149,16 @@ func matchport(a, b Port) bool {
 		_, match = b.(*int)
 	}
 	return match
+}
+
+func portpt(port Port) interface{} {
+	switch x := port.(type) {
+	case *bool:
+		return &x
+	case *float64:
+		return &x
+	case *int:
+		return &x
+	}
+	panic("portpt invalid")
 }

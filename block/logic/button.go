@@ -52,6 +52,7 @@ func (b *multiButton) Output() block.OutputMap {
 	}
 	return block.MapOutput("multibutton", m)
 }
+func (b *multiButton) Validate() error { return block.CheckInputs("multibutton", &b.i) }
 
 func (b *multiButton) Tick() {
 	if *b.i != b.state {

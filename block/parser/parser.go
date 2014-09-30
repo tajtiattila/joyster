@@ -1,5 +1,10 @@
 package parser
 
+import (
+	"fmt"
+	"github.com/tajtiattila/joyster/block"
+)
+
 /*
 stmt :=
 	'block' name blockspec
@@ -33,16 +38,18 @@ plugvalue :=
 */
 
 type parser struct {
-	*context
-	r    *sourcereader
-	deps map[blockspec][]blockspec
+	*Context
+	r     *sourcereader
+	specs []blockspec
 }
 
 func newparser(p []byte) *parser {
 	return &parser{
-		context: &context{
-			config: make(map[string]float64),
-			specs: map[string]blockspec{
+		Context: &Context{
+			Profile:   new(block.Profile),
+			config:    make(map[string]float64),
+			blockline: make(map[block.Block]int),
+			names: map[string]blockspec{
 				"true":       constbool(true),
 				"on":         constbool(true),
 				"false":      constbool(false),
@@ -74,11 +81,14 @@ func (p *parser) parse() (err error) {
 	}()
 	p.parseimpl()
 	for _, c := range p.conns {
-		tblks, ok := p.specs[c.name]
+		tblks, ok := p.names[c.name]
 		if !ok {
 			return srcerrf(p.r, "conn target %s missing", c.name)
 		}
-		p.depends(tblks, c.blockspec)
+		p.dependency(tblks, c.blockspec)
+	}
+	for _, s := range p.specs {
+		s.Deps(p.Context)
 	}
 	for {
 		done, progress := true, false
@@ -88,9 +98,13 @@ func (p *parser) parse() (err error) {
 				done = false
 				if wd, ok := p.deps[dep]; !ok || len(wd) == 0 {
 					progress = true
-					_, err := dep.Prepare(p.context)
+					blk, err := dep.Prepare(p.Context)
 					if err != nil {
-						return srcerr(p.r, err)
+						return err
+					}
+					fmt.Printf("depfix %s -> %p\n", dep.String(), blk)
+					if err = blk.Validate(); err != nil {
+						return errf("dependency failure on %s: %v", dep.String(), err)
 					}
 				} else {
 					w = append(w, dep)
@@ -106,11 +120,11 @@ func (p *parser) parse() (err error) {
 		}
 	}
 	for _, c := range p.conns {
-		tblks, ok := p.specs[c.name]
+		tblks, ok := p.names[c.name]
 		if !ok {
 			return srcerrf(p.r, "conn target %s missing", c.name)
 		}
-		tblk, err := tblks.Prepare(p.context)
+		tblk, err := tblks.Prepare(p.Context)
 		if err != nil {
 			return srcerr(p.r, err)
 		}
@@ -118,7 +132,7 @@ func (p *parser) parse() (err error) {
 		if is == nil {
 			return srcerrf(p.r, "conn target %s has no inputs", c.name)
 		}
-		sblk, err := c.blockspec.Prepare(p.context)
+		sblk, err := c.blockspec.Prepare(p.Context)
 		if err != nil {
 			return srcerr(p.r, err)
 		}
@@ -131,6 +145,11 @@ func (p *parser) parse() (err error) {
 			return srcerr(p.r, err)
 		}
 		is.Set(c.sel, port)
+	}
+	for blk, lineno := range p.blockline {
+		if err := blk.Validate(); err != nil {
+			return errf("line %d: validation failure: %v", lineno, err)
+		}
 	}
 	return
 }
@@ -153,10 +172,10 @@ func (p *parser) parseimpl() {
 			p.r.endstatement()
 		case p.r.eat("block"):
 			name := p.r.name()
-			if _, ok := p.specs[name]; ok {
+			if _, ok := p.names[name]; ok {
 				panic("duplicate name")
 			}
-			p.specs[name] = p.parseblockspec(true)
+			p.names[name] = p.parseblockspec(true)
 			p.r.endstatement()
 		case p.r.eat("conn"):
 			name, spec := p.r.spec()
@@ -194,13 +213,13 @@ func (p *parser) parseblockspec(inputs bool) blockspec {
 			}
 			grp.v = append(grp.v, p.parsetypedblockspec(false))
 		}
-		return grp
+		return p.addspec(grp)
 	case isnumstart(p.r.ch()):
 		n := p.r.number()
-		return &valueblkspec{constblkspec{&n}, p.r.sourceline()}
+		return p.addspec(&valueblkspec{constblkspec{&n}, p.r.sourceline()})
 	default:
 		n, s := p.r.spec()
-		return &namedblkspec{p.r.sourceline(), n, s}
+		return p.addspec(&namedblkspec{p.r.sourceline(), n, s})
 	}
 }
 
@@ -232,9 +251,9 @@ func (p *parser) parsetypedblockspec(allowinput bool) *factoryblkspec {
 			panic("input declaration not allowed")
 		}
 		input := p.parseblockspec(allowinput)
-		p.depends(blk, input)
 		blk.inputs = append(blk.inputs, input)
 	}
+	p.addspec(blk)
 	return blk
 }
 
@@ -267,11 +286,9 @@ func (p *parser) parseparam() paramspec {
 	return nil
 }
 
-func (p *parser) depends(spec, dependency blockspec) {
-	if p.deps == nil {
-		p.deps = make(map[blockspec][]blockspec)
-	}
-	p.deps[spec] = append(p.deps[spec], dependency)
+func (p *parser) addspec(s blockspec) blockspec {
+	p.specs = append(p.specs, s)
+	return s
 }
 
 func constint(v int) *constblkspec   { return &constblkspec{&v} }

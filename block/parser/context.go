@@ -5,37 +5,52 @@ import (
 	"github.com/tajtiattila/joyster/block"
 )
 
-type context struct {
-	config  map[string]float64
-	typemap map[string](func() block.Block)
-	specs   map[string]blockspec
-	conns   []connspec
-	tickers []block.Ticker
+type Context struct {
+	*block.Profile
+
+	config map[string]float64
+	names  map[string]blockspec
+	conns  []connspec
+	deps   map[blockspec][]blockspec
+
+	blockline map[block.Block]int
 }
 
-func (c *context) createBlock(typ string, p block.Param) (block.Block, error) {
+func (c *Context) createBlock(typ string, p block.Param) (block.Block, error) {
 	if f, ok := block.DefaultTypeMap[typ]; ok {
-		return f(p)
-	}
-	/*
-		f, ok := c.typemap[typ]
-		if !ok {
-			return nil, fmt.Errorf("block type '%s' unknown", typ)
+		blk, err := f(p)
+		if err != nil {
+			return nil, err
 		}
-		b.xblk = f()
-	*/
+		c.Blocks = append(c.Blocks, blk)
+		return blk, nil
+	}
 	return nil, fmt.Errorf("unknown type '%s'", typ)
-	//return &dummyBlock{typ, false}, nil
 }
 
-func (c *context) addBlock(b block.Block) {
+func (c *Context) addBlock(b block.Block) {
 	if t, ok := b.(block.Ticker); ok {
-		c.tickers = append(c.tickers, t)
+		c.Tickers = append(c.Tickers, t)
 	}
+}
+
+func (c *Context) dependency(spec, dependency blockspec) {
+	if c.deps == nil {
+		c.deps = make(map[blockspec][]blockspec)
+	}
+	for _, d := range c.deps[spec] {
+		if d == dependency {
+			return
+		}
+	}
+	fmt.Printf("Dependency: %v → %v\n", spec, dependency)
+	c.deps[spec] = append(c.deps[spec], dependency)
 }
 
 type blockspec interface {
-	Prepare(c *context) (block.Block, error)
+	Deps(c *Context) error
+	Prepare(c *Context) (block.Block, error)
+	String() string
 }
 
 type dummyBlock struct {

@@ -82,6 +82,7 @@ func (v *vjoyblk) Input() block.InputMap {
 }
 
 func (v *vjoyblk) Output() block.OutputMap { return nil }
+func (v *vjoyblk) Validate() error         { return nil }
 
 func (v *vjoyblk) Tick() {
 	for _, a := range v.axes {

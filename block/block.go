@@ -5,6 +5,7 @@ package block
 type Block interface {
 	Input() InputMap
 	Output() OutputMap
+	Validate() error
 }
 
 // ticker is an interface for blocks that needs update once upon each update tick.

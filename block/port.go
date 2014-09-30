@@ -34,6 +34,15 @@ type OutputMap interface {
 //  *int - hat
 type Port interface{}
 
+func CheckInputs(typ string, v ...interface{}) error {
+	for i, input := range v {
+		if err := CheckInput(input); err != nil {
+			return fmt.Errorf("'%s' input %d: %s", typ, i+1, err.Error())
+		}
+	}
+	return nil
+}
+
 func CheckInput(i interface{}) error {
 	if i == nil {
 		return errors.New("port is nil")
@@ -123,7 +132,7 @@ func Connect(i interface{}, port Port) error {
 		return errors.New("target type invalid")
 	}
 	if !ok {
-		return fmt.Errorf("types %s and %s incompatible", PortString(my), PortString(port))
+		return fmt.Errorf("type %s and %s incompatible", PortString(my), PortString(port))
 	}
 	return nil
 }

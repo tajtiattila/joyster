@@ -21,6 +21,7 @@ func (b *cmpopblk) Input() InputMap {
 	return MapInput(b.typ, map[string]interface{}{"1": &b.i1, "2": &b.i2})
 }
 func (b *cmpopblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
+func (b *cmpopblk) Validate() error   { return CheckInputs(b.typ, &b.i1, &b.i2) }
 
 func init() {
 	RegisterCmpFunc("eq", func(a, b float64) bool { return eq(a, b) })

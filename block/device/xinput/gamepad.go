@@ -29,6 +29,7 @@ type gamepad struct {
 }
 
 func (p *gamepad) Input() block.InputMap { return nil }
+func (p *gamepad) Validate() error       { return nil }
 
 func (p *gamepad) Output() block.OutputMap {
 	return block.MapOutput("gamepad", map[string]interface{}{
@@ -36,6 +37,8 @@ func (p *gamepad) Output() block.OutputMap {
 		"buttonb":  &p.b,
 		"buttonx":  &p.x,
 		"buttony":  &p.y,
+		"start":    &p.start,
+		"back":     &p.back,
 		"ltrigger": &p.ltrigger,
 		"rtrigger": &p.rtrigger,
 		"lbumper":  &p.lbumper,
@@ -106,7 +109,7 @@ func int16scalar(v int16) float64 {
 var dpadmap []int
 
 func init() {
-	dpadmap := make([]int, 16)
+	dpadmap = make([]int, 16)
 	for i := 0; i < 16; i++ {
 		b := uint16(i)
 		v := 0
