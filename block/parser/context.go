@@ -1,15 +1,16 @@
 package parser
 
 import (
+	"fmt"
 	"github.com/tajtiattila/joyster/block"
 )
 
 type context struct {
 	config  map[string]float64
 	typemap map[string](func() block.Block)
-	blocks  map[string]blockspec
+	specs   map[string]blockspec
 	conns   []connspec
-	deps    map[block.Block][]block.Block
+	tickers []block.Ticker
 }
 
 func (c *context) createBlock(typ string, p *block.Param) (block.Block, error) {
@@ -23,14 +24,14 @@ func (c *context) createBlock(typ string, p *block.Param) (block.Block, error) {
 		}
 		b.xblk = f()
 	*/
-	return &dummyBlock{typ, false}, nil
+	return nil, fmt.Errorf("unknown type '%s'", typ)
+	//return &dummyBlock{typ, false}, nil
 }
 
-func (c *context) depends(blk, dependency block.Block) {
-	if c.deps == nil {
-		c.deps = make(map[block.Block][]block.Block)
+func (c *context) addBlock(b block.Block) {
+	if t, ok := b.(block.Ticker); ok {
+		c.tickers = append(c.tickers, t)
 	}
-	c.deps[blk] = append(c.deps[blk], dependency)
 }
 
 type blockspec interface {

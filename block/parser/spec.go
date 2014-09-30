@@ -27,6 +27,7 @@ func (b *factoryblkspec) Prepare(c *context) (block.Block, error) {
 		if err = b.inputsetup(c, b.blk); err != nil {
 			return nil, err
 		}
+		c.addBlock(b.blk)
 	}
 	return b.blk, nil
 }
@@ -79,7 +80,6 @@ func (b *factoryblkspec) inputsetup(c *context, blk block.Block) error {
 			if err != nil {
 				return srcerr(b, err)
 			}
-			c.depends(blk, cblk)
 		}
 	}
 	return nil
@@ -157,6 +157,7 @@ func (b *groupblkspec) Prepare(c *context) (block.Block, error) {
 				}
 			}
 		}
+		c.addBlock(cblk)
 		if first == nil {
 			first = is
 		} else {
@@ -170,7 +171,6 @@ func (b *groupblkspec) Prepare(c *context) (block.Block, error) {
 					return nil, srcerr(b, err)
 				}
 			}
-			c.depends(cblk, last)
 		}
 		last = cblk
 	}
@@ -279,7 +279,7 @@ type namedblkspec struct {
 
 func (b *namedblkspec) SourceLine() int { return b.lineno }
 func (b *namedblkspec) Prepare(c *context) (block.Block, error) {
-	blks, ok := c.blocks[b.name]
+	blks, ok := c.specs[b.name]
 	if !ok {
 		return nil, srcerrf(b, "input %s is missing", b.name)
 	}

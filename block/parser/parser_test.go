@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"fmt"
+	"github.com/tajtiattila/joyster/block"
 	"testing"
 )
 
@@ -136,6 +138,76 @@ block headlook [headlook: MovePerSec=2.0 AutoCenterDist=0.2 AutoCenterAccel=0.00
 conn headlook.x [if headlooktoggle rs.x 0]
 conn headlook.y [if headlooktoggle rs.y 0]
 `)
+
+var vjoyblkmap = make(map[string]interface{})
+var inputblkmap = make(map[string]interface{})
+
+func init() {
+	for _, n := range []string{"x", "y", "z", "rx", "ry", "rz", "u", "v"} {
+		vjoyblkmap[n] = new(float64)
+	}
+	for i := 1; i <= 32; i++ {
+		vjoyblkmap[fmt.Sprint(i)] = new(bool)
+	}
+	for i := 1; i <= 4; i++ {
+		vjoyblkmap[fmt.Sprint("hat", i)] = new(int)
+	}
+	block.RegisterParam("vjoy", func(*block.Param) (block.Block, error) {
+		return &testvjoyblk{}, nil
+	})
+
+	for _, n := range []string{"lx", "ly", "rx", "ry", "ltrigger", "rtrigger"} {
+		inputblkmap[n] = new(float64)
+	}
+	inputblkmap["dpad"] = new(int)
+	for _, n := range []string{"buttona", "buttonb", "buttonx", "buttony",
+		"lbumper", "rbumper", "lthumb", "rthumb", "back", "start"} {
+		inputblkmap[n] = new(bool)
+	}
+	block.RegisterParam("gamepad", func(*block.Param) (block.Block, error) {
+		return &testgamepadblk{}, nil
+	})
+}
+
+type testvjoyblk struct {
+}
+
+func (*testvjoyblk) OutputNames() []string { return nil }
+func (*testvjoyblk) Output(sel string) (block.Port, error) {
+	return nil, fmt.Errorf("vjoy has no port '%s'", sel)
+}
+
+func (*testvjoyblk) InputNames() []string {
+	var names []string
+	for n := range vjoyblkmap {
+		names = append(names, n)
+	}
+	return names
+}
+
+func (*testvjoyblk) SetInput(sel string, port block.Port) error {
+	if _, ok := vjoyblkmap[sel]; ok {
+		return nil
+	}
+	return fmt.Errorf("vjoy has no port '%s'", sel)
+}
+
+type testgamepadblk struct {
+}
+
+func (*testgamepadblk) OutputNames() []string {
+	var v []string
+	for n, _ := range inputblkmap {
+		v = append(v, n)
+	}
+	return v
+}
+func (*testgamepadblk) Output(sel string) (block.Port, error) {
+	if p, ok := inputblkmap[sel]; ok {
+		return p, nil
+	}
+	return nil, fmt.Errorf("gamepad has no port '%s'", sel)
+}
 
 func TestParser(t *testing.T) {
 	p := newparser(testsrc)

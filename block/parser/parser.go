@@ -39,14 +39,15 @@ plugvalue :=
 
 type parser struct {
 	*context
-	r *sourcereader
+	r    *sourcereader
+	deps map[blockspec][]blockspec
 }
 
 func newparser(p []byte) *parser {
 	return &parser{
 		context: &context{
 			config: make(map[string]float64),
-			blocks: map[string]blockspec{
+			specs: map[string]blockspec{
 				"true":      constbool(true),
 				"on":        constbool(true),
 				"false":     constbool(false),
@@ -70,7 +71,39 @@ func (p *parser) parse() (err error) {
 	}()
 	p.parseimpl()
 	for _, c := range p.conns {
-		tblks, ok := p.blocks[c.name]
+		tblks, ok := p.specs[c.name]
+		if !ok {
+			return fmt.Errorf("line %d: conn target %s missing", p.r.lineno(), c.name)
+		}
+		p.depends(tblks, c.blockspec)
+	}
+	for {
+		done, progress := true, false
+		for k := range p.deps {
+			var w []blockspec
+			for _, dep := range p.deps[k] {
+				done = false
+				if wd, ok := p.deps[dep]; !ok || len(wd) == 0 {
+					progress = true
+					_, err := dep.Prepare(p.context)
+					if err != nil {
+						return fmt.Errorf("line %d: %s", p.r.lineno(), err.Error())
+					}
+				} else {
+					w = append(w, dep)
+				}
+			}
+			p.deps[k] = w
+		}
+		if done {
+			break
+		}
+		if !progress {
+			return fmt.Errorf("circular dependency")
+		}
+	}
+	for _, c := range p.conns {
+		tblks, ok := p.specs[c.name]
 		if !ok {
 			return fmt.Errorf("line %d: conn target %s missing", p.r.lineno(), c.name)
 		}
@@ -114,10 +147,10 @@ func (p *parser) parseimpl() {
 			p.r.endstatement()
 		case p.r.eat("block"):
 			name := p.r.name()
-			if _, ok := p.blocks[name]; ok {
+			if _, ok := p.specs[name]; ok {
 				panic("duplicate name")
 			}
-			p.blocks[name] = p.parseblockspec(true)
+			p.specs[name] = p.parseblockspec(true)
 			p.r.endstatement()
 		case p.r.eat("conn"):
 			name, spec := p.r.spec()
@@ -165,7 +198,7 @@ func (p *parser) parseblockspec(inputs bool) blockspec {
 	}
 }
 
-func (p *parser) parsetypedblockspec(inputs bool) *factoryblkspec {
+func (p *parser) parsetypedblockspec(allowinput bool) *factoryblkspec {
 	dollar := p.r.eatch('$')
 	if dollar {
 		p.r.skiplinespace()
@@ -186,10 +219,12 @@ func (p *parser) parsetypedblockspec(inputs bool) *factoryblkspec {
 			}
 			break
 		}
-		if !inputs {
+		if !allowinput {
 			panic("input declaration not allowed")
 		}
-		blk.inputs = append(blk.inputs, p.parseblockspec(inputs))
+		input := p.parseblockspec(allowinput)
+		p.depends(blk, input)
+		blk.inputs = append(blk.inputs, input)
 	}
 	return blk
 }
@@ -219,6 +254,13 @@ func (p *parser) parseparam() *block.Param {
 		}
 	}
 	return v
+}
+
+func (p *parser) depends(spec, dependency blockspec) {
+	if p.deps == nil {
+		p.deps = make(map[blockspec][]blockspec)
+	}
+	p.deps[spec] = append(p.deps[spec], dependency)
 }
 
 func constint(v int) *constblkspec   { return &constblkspec{&v} }
