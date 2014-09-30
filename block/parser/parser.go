@@ -73,7 +73,7 @@ func (p *parser) parse() (err error) {
 	for _, c := range p.conns {
 		tblks, ok := p.specs[c.name]
 		if !ok {
-			return fmt.Errorf("line %d: conn target %s missing", p.r.lineno(), c.name)
+			return srcerrf(p.r, "conn target %s missing", c.name)
 		}
 		p.depends(tblks, c.blockspec)
 	}
@@ -87,7 +87,7 @@ func (p *parser) parse() (err error) {
 					progress = true
 					_, err := dep.Prepare(p.context)
 					if err != nil {
-						return fmt.Errorf("line %d: %s", p.r.lineno(), err.Error())
+						return srcerr(p.r, err)
 					}
 				} else {
 					w = append(w, dep)
@@ -99,30 +99,30 @@ func (p *parser) parse() (err error) {
 			break
 		}
 		if !progress {
-			return fmt.Errorf("circular dependency")
+			return errf("circular dependency")
 		}
 	}
 	for _, c := range p.conns {
 		tblks, ok := p.specs[c.name]
 		if !ok {
-			return fmt.Errorf("line %d: conn target %s missing", p.r.lineno(), c.name)
+			return srcerrf(p.r, "conn target %s missing", c.name)
 		}
 		tblk, err := tblks.Prepare(p.context)
 		if err != nil {
-			return fmt.Errorf("line %d: %s", p.r.lineno(), err.Error())
+			return srcerr(p.r, err)
 		}
 		is, ok := tblk.(block.InputSetter)
 		fmt.Printf("%d %#v %#v\n", c.lineno, tblk, is)
 		if !ok {
-			return fmt.Errorf("line %d: can't set input on '%s'", p.r.lineno(), c.name)
+			return srcerrf(p.r, "can't set input on '%s'", c.name)
 		}
 		sblk, err := c.blockspec.Prepare(p.context)
 		if err != nil {
-			return fmt.Errorf("line %d: %s", p.r.lineno(), err.Error())
+			return srcerr(p.r, err)
 		}
 		port, err := sblk.Output(c.sel)
 		if err != nil {
-			return fmt.Errorf("line %d: %s", p.r.lineno(), err.Error())
+			return srcerr(p.r, err)
 		}
 		is.SetInput(c.sel, port)
 	}
@@ -137,11 +137,11 @@ func (p *parser) parseimpl() {
 			p.r.skipline()
 		case p.r.eat("set"):
 			p.r.skiplinespace()
-			v := p.parseparam()
-			if len(v.P) != 0 {
+			m, ok := p.parseparam().(namedparamspec)
+			if !ok {
 				panic("positional arguments in set")
 			}
-			for n, v := range v.N {
+			for n, v := range m {
 				p.config[n] = v
 			}
 			p.r.endstatement()
@@ -154,7 +154,7 @@ func (p *parser) parseimpl() {
 			p.r.endstatement()
 		case p.r.eat("conn"):
 			name, spec := p.r.spec()
-			lineno := p.r.lineno()
+			lineno := p.r.sourceline()
 			p.conns = append(p.conns, connspec{name, spec, p.parseblockspec(true), lineno})
 			p.r.endstatement()
 		default:
@@ -177,7 +177,7 @@ func (p *parser) parseblockspec(inputs bool) blockspec {
 			}
 			names = append(names, p.r.name())
 		}
-		grp := &groupblkspec{lineno: p.r.lineno(), sels: names}
+		grp := &groupblkspec{lineno: p.r.sourceline(), sels: names}
 		for {
 			p.r.skipallspace()
 			if !isblkdefstart(p.r.ch()) {
@@ -191,10 +191,10 @@ func (p *parser) parseblockspec(inputs bool) blockspec {
 		return grp
 	case isnumstart(p.r.ch()):
 		n := p.r.number()
-		return &valueblkspec{constblkspec{&n}, p.r.lineno()}
+		return &valueblkspec{constblkspec{&n}, p.r.sourceline()}
 	default:
 		n, s := p.r.spec()
-		return &namedblkspec{p.r.lineno(), n, s}
+		return &namedblkspec{p.r.sourceline(), n, s}
 	}
 }
 
@@ -206,7 +206,7 @@ func (p *parser) parsetypedblockspec(allowinput bool) *factoryblkspec {
 	if !p.r.eatch('[') {
 		panic("invalid typed block spec")
 	}
-	blk := &factoryblkspec{lineno: p.r.lineno(), dollar: dollar, typ: p.r.name()}
+	blk := &factoryblkspec{lineno: p.r.sourceline(), dollar: dollar, typ: p.r.name()}
 	for {
 		p.r.skiplinespace()
 		if p.r.eatch(']') {
@@ -218,6 +218,9 @@ func (p *parser) parsetypedblockspec(allowinput bool) *factoryblkspec {
 				panic("unclosed argument block")
 			}
 			break
+		} else {
+			var emptyparam posparamspec
+			blk.param = emptyparam
 		}
 		if !allowinput {
 			panic("input declaration not allowed")
@@ -229,31 +232,33 @@ func (p *parser) parsetypedblockspec(allowinput bool) *factoryblkspec {
 	return blk
 }
 
-func (p *parser) parseparam() *block.Param {
-	v := new(block.Param)
+func (p *parser) parseparam() paramspec {
 	p.r.skiplinespace()
 	if isdigit(p.r.ch()) || p.r.ch() == '-' {
+		var param posparamspec
 		for {
-			v.P = append(v.P, p.r.number())
+			param = append(param, p.r.number())
 			if !isdigit(p.r.ch()) {
 				break
 			}
 		}
+		return param
 	} else {
-		v.N = make(map[string]float64)
+		param := make(namedparamspec)
 		for {
 			name := p.r.name()
 			if !p.r.eatch('=') {
 				panic("'=' expected after name")
 			}
-			v.N[name] = p.r.number()
+			param[name] = p.r.number()
 			p.r.skiplinespace()
 			if !isnamestart(p.r.ch()) {
 				break
 			}
 		}
+		return param
 	}
-	return v
+	return nil
 }
 
 func (p *parser) depends(spec, dependency blockspec) {

@@ -152,7 +152,8 @@ func init() {
 	for i := 1; i <= 4; i++ {
 		vjoyblkmap[fmt.Sprint("hat", i)] = new(int)
 	}
-	block.RegisterParam("vjoy", func(*block.Param) (block.Block, error) {
+	block.RegisterParam("vjoy", func(p block.Param) (block.Block, error) {
+		_ = p.Arg("device")
 		return &testvjoyblk{}, nil
 	})
 
@@ -164,7 +165,8 @@ func init() {
 		"lbumper", "rbumper", "lthumb", "rthumb", "back", "start"} {
 		inputblkmap[n] = new(bool)
 	}
-	block.RegisterParam("gamepad", func(*block.Param) (block.Block, error) {
+	block.RegisterParam("gamepad", func(p block.Param) (block.Block, error) {
+		_ = p.Arg("device")
 		return &testgamepadblk{}, nil
 	})
 }
@@ -214,5 +216,5 @@ func TestParser(t *testing.T) {
 	if err := p.parse(); err != nil {
 		t.Error(err)
 	}
-	t.Logf("%#v", p)
+	//t.Logf("%#v", p)
 }

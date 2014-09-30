@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"errors"
-	"fmt"
 	"github.com/tajtiattila/joyster/block"
 )
 
@@ -11,12 +9,12 @@ type factoryblkspec struct {
 	dollar bool
 	typ    string
 	inputs []blockspec
-	param  *block.Param
+	param  paramspec
 
 	blk block.Block
 }
 
-func (b *factoryblkspec) SourceLine() int { return b.lineno }
+func (b *factoryblkspec) sourceline() int { return b.lineno }
 
 func (b *factoryblkspec) Prepare(c *context) (block.Block, error) {
 	if b.blk == nil {
@@ -33,14 +31,15 @@ func (b *factoryblkspec) Prepare(c *context) (block.Block, error) {
 }
 
 func (b *factoryblkspec) create(c *context, grp bool) (block.Block, error) {
+	blk, err := b.newBlock(c)
+	if err != nil {
+		return nil, err
+	}
 	if b.dollar {
-		xblk, err := c.createBlock(b.typ, b.param)
+		xblk := blk
+		yblk, err := b.newBlock(c)
 		if err != nil {
-			return nil, srcerr(b, err)
-		}
-		yblk, err := c.createBlock(b.typ, b.param)
-		if err != nil {
-			return nil, srcerr(b, err)
+			return nil, err
 		}
 		if _, ok := xblk.(block.InputSetter); !ok {
 			return nil, srcerrf(b, "$ block '%s' must support inputs", b.typ)
@@ -49,10 +48,6 @@ func (b *factoryblkspec) create(c *context, grp bool) (block.Block, error) {
 			return nil, srcerrf(b, "$ block '%s' must support inputs", b.typ)
 		}
 		return &xyblk{xblk, yblk}, nil
-	}
-	blk, err := c.createBlock(b.typ, b.param)
-	if err != nil {
-		return nil, srcerr(b, err)
 	}
 	return blk, nil
 }
@@ -85,6 +80,18 @@ func (b *factoryblkspec) inputsetup(c *context, blk block.Block) error {
 	return nil
 }
 
+func (b *factoryblkspec) newBlock(c *context) (block.Block, error) {
+	param := b.param.Prepare(c)
+	blk, err := c.createBlock(b.typ, param)
+	if err != nil {
+		return nil, srcerr(b, err)
+	}
+	if param.err() != nil {
+		return nil, srcerr(b, param.err())
+	}
+	return blk, nil
+}
+
 type xyblk struct {
 	x, y block.Block
 }
@@ -97,7 +104,7 @@ func (b *xyblk) Output(sel string) (block.Port, error) {
 	case "y":
 		return b.y.Output("")
 	}
-	return nil, fmt.Errorf("'xy' has outputs 'x' and 'y', but not '%s'", sel)
+	return nil, errf("'xy' has outputs 'x' and 'y', but not '%s'", sel)
 }
 
 func (b *xyblk) InputNames() []string { return []string{"x", "y"} }
@@ -109,11 +116,11 @@ func (b *xyblk) SetInput(sel string, port block.Port) error {
 	case "y":
 		child = b.y
 	default:
-		return fmt.Errorf("'xy' has inputs 'x' and 'y', but not '%s'", sel)
+		return errf("'xy' has inputs 'x' and 'y', but not '%s'", sel)
 	}
 	is, ok := child.(block.InputSetter)
 	if !ok {
-		return fmt.Errorf("'xy' child '%s' doesn't accept inputs", sel)
+		return errf("'xy' child '%s' doesn't accept inputs", sel)
 	}
 	return is.SetInput("", port)
 }
@@ -124,7 +131,7 @@ type groupblkspec struct {
 	v      []*factoryblkspec
 }
 
-func (b *groupblkspec) SourceLine() int { return b.lineno }
+func (b *groupblkspec) sourceline() int { return b.lineno }
 
 func (b *groupblkspec) Prepare(c *context) (block.Block, error) {
 	var first block.InputSetter
@@ -199,7 +206,7 @@ func (b *simplemultiblk) SetInput(sel string, input block.Port) error {
 			return b.v[i].(block.InputSetter).SetInput("", input)
 		}
 	}
-	return fmt.Errorf("simplemultiblk has no input '%s'", sel)
+	return errf("simplemultiblk has no input '%s'", sel)
 }
 
 func (b *simplemultiblk) OutputNames() []string { return b.names }
@@ -210,7 +217,7 @@ func (b *simplemultiblk) Output(sel string) (block.Port, error) {
 			return b.v[i].Output("")
 		}
 	}
-	return nil, fmt.Errorf("simplemultiblk has no output '%s'", sel)
+	return nil, errf("simplemultiblk has no output '%s'", sel)
 }
 
 type tickermultiblk struct {
@@ -253,8 +260,7 @@ func (b *constblkspec) Prepare(c *context) (block.Block, error) {
 	return b, nil
 }
 
-func (b *constblkspec) Setup(*block.Param) error { return srcerrf(b, "const does not support setup") }
-func (b *constblkspec) OutputNames() []string    { return []string{""} }
+func (b *constblkspec) OutputNames() []string { return []string{""} }
 
 func (b *constblkspec) Output(sel string) (block.Port, error) {
 	if sel != "" {
@@ -263,21 +269,21 @@ func (b *constblkspec) Output(sel string) (block.Port, error) {
 	return b.p, nil
 }
 
-func (*constblkspec) SourceLine() int { return -1 }
+func (*constblkspec) sourceline() int { return -1 }
 
 type valueblkspec struct {
 	constblkspec
 	lineno int
 }
 
-func (b *valueblkspec) SourceLine() int { return b.lineno }
+func (b *valueblkspec) sourceline() int { return b.lineno }
 
 type namedblkspec struct {
 	lineno    int
 	name, sel string
 }
 
-func (b *namedblkspec) SourceLine() int { return b.lineno }
+func (b *namedblkspec) sourceline() int { return b.lineno }
 func (b *namedblkspec) Prepare(c *context) (block.Block, error) {
 	blks, ok := c.specs[b.name]
 	if !ok {
@@ -296,9 +302,8 @@ type namedport struct {
 	sel    string
 }
 
-func (p *namedport) Setup(*block.Param) error { return srcerr(p, "named port does not have setup") }
-func (p *namedport) SourceLine() int          { return p.lineno }
-func (p *namedport) OutputNames() []string    { return []string{""} }
+func (p *namedport) sourceline() int       { return p.lineno }
+func (p *namedport) OutputNames() []string { return []string{""} }
 func (p *namedport) Output(sel string) (block.Port, error) {
 	if sel != "" {
 		return nil, srcerrf(p, "internal error: selector '%s' on namedblkspec is impossible", sel)
@@ -306,37 +311,9 @@ func (p *namedport) Output(sel string) (block.Port, error) {
 	return p.blk.Output(p.sel)
 }
 
-type sourceliner interface {
-	SourceLine() int
-}
-
 type connspec struct {
 	name, sel string
 	blockspec
 
 	lineno int
-}
-
-type sourceerror struct {
-	lineno int
-	err    error
-}
-
-func (e *sourceerror) Error() string {
-	return fmt.Sprintf("line %d: ", e.lineno) + e.err.Error()
-}
-
-func srcerr(s sourceliner, i interface{}) error {
-	n := s.SourceLine()
-	switch x := i.(type) {
-	case *sourceerror:
-		return x
-	case error:
-		return &sourceerror{n, x}
-	}
-	return &sourceerror{n, errors.New(fmt.Sprint(i))}
-}
-
-func srcerrf(s sourceliner, f string, args ...interface{}) error {
-	return srcerr(s, fmt.Sprintf(f, args...))
 }

@@ -1,9 +1,5 @@
 package block
 
-import (
-	"fmt"
-)
-
 // a block is a set of outputs
 type Block interface {
 	OutputNames() []string
@@ -42,12 +38,7 @@ type InputSetter interface {
 	SetInput(sel string, port Port) error
 }
 
-type Param struct {
-	P []float64
-	N map[string]float64
-}
-
-type BlockFactory func(*Param) (Block, error)
+type BlockFactory func(Param) (Block, error)
 
 type TypeMap map[string]BlockFactory
 
@@ -57,10 +48,7 @@ func Register(name string, fn func() Block) {
 	if _, ok := DefaultTypeMap[name]; ok {
 		panic("duplicate name: " + name)
 	}
-	DefaultTypeMap[name] = func(p *Param) (Block, error) {
-		if p != nil {
-			return nil, fmt.Errorf("'%s' does not support parameters", name)
-		}
+	DefaultTypeMap[name] = func(Param) (Block, error) {
 		return fn(), nil
 	}
 }

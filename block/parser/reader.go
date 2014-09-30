@@ -17,7 +17,7 @@ func newsourcereader(p []byte) *sourcereader {
 	return &sourcereader{src: p}
 }
 
-func (r *sourcereader) lineno() int {
+func (r *sourcereader) sourceline() int {
 	return r.nline + 1
 }
 

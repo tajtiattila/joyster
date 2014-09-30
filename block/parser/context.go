@@ -13,7 +13,7 @@ type context struct {
 	tickers []block.Ticker
 }
 
-func (c *context) createBlock(typ string, p *block.Param) (block.Block, error) {
+func (c *context) createBlock(typ string, p block.Param) (block.Block, error) {
 	if f, ok := block.DefaultTypeMap[typ]; ok {
 		return f(p)
 	}

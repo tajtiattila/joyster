@@ -1,205 +1,154 @@
 package logic
 
 import (
-	"fmt"
 	"github.com/tajtiattila/joyster/block"
 	"math"
 )
 
-// add value to input
-type OffsetBlock struct {
-	Value float64
-}
-
-func (b *OffsetBlock) Setup(c block.Config) bool { b, ok := c.(OffsetBlock); return ok }
-func (b *OffsetBlock) Tick(v float64) float64    { return v + b.Offset }
-
-// zero input under abs. value, reduce bigger
-type DeadzoneBlock struct {
-	Deadzone float64
-}
-
-func (b *DeadzoneBlock) Tick(v float64) float64 {
-	var s float64
-	if v < 0 {
-		v, s = -v, -1
-	} else {
-		s = 1
-	}
-	v -= b.Deadzone
-	if v < 0 {
-		return 0
-	}
-	return v * s
-}
-
-// multiply input by factor
-type MultiplyBlock struct {
-	Factor float64
-}
-
-func (b *MultiplyBlock) Tick(v float64) float64 {
-	return v * b.Factor
-}
-
-// axis sensitivivy curve (factor: 0 - linear, positive: nonlinear)
-type CurvatureBlock struct {
-	pow float64
-}
-
-func (b *CurvatureBlock) Setup(c map[string]interface{}) bool {
-	f, ok := c["factor"].(float64)
-	b.pow = math.Pow(2, f)
-	return ok
-}
-
-func (b *CurvatureBlock) Tick(v float64) float64 {
-	s := float64(1)
-	if v < 0 {
-		s, v = -1, -v
-	}
-	return s * math.Pow(v, pow)
-}
-
-// truncate input above abs. value
-type TruncateBlock struct {
-	treshold float64
-}
-
-func (b *TruncateBlock) Setup(c Config) {
-	b.treshold = c.Float64("factor")
-}
-
-func (b *TruncateBlock) Tick(v float64) float64 {
-	switch {
-	case v < -b.treshold:
-		return -b.treshold
-	case b.treshold < v:
-		return b.treshold
-	}
-	return v
-}
-
-// set maximum input change to value/second
-type DampenBlock struct {
-	speed float64
-	pos   float64
-}
-
-func (b *DampenBlock) Setup(c Config) {
-	b.speed = c.Float64("value") * c.TickTime()
-}
-
-func (b *DampenBlock) Tick(v float64) {
-	switch {
-	case b.pos+speed < v:
-		b.pos += speed
-	case v < b.pos-speed:
-		b.pos -= speed
-	default:
-		b.pos = v
-	}
-	return b.pos
-}
-
-// smooth inputs over time (seconds)
-type SmoothBlock struct {
-	b0, b1 float64
-	posv   []int64
-	n      int
-	sum    int64
-}
-
-func (b *SmoothBlock) Setup(c Config) {
-	nsamples := math.Floor(c.Float64("factor") * c.TickFreq())
-	b.m0 = math.Pow(2, 63) / (nsamples * 100)
-	b.m1 = 1 / (m0 * nsamples)
-	b.posv = make([]int64, int(nsamples))
-	b.n, b.sum = 0, 0
-}
-
-func (b *SmoothBlock) Tick(v float64) float64 {
-	iv := int64(v * b.m0)
-	b.sum -= posv[b.n]
-	b.posv[b.n], b.n = iv, (b.n+1)%len(b.posv)
-	b.sum += iv
-	return float64(b.sum) * b.m1
-}
-
-// use input as delta, change values by speed/second
-type IncrementalBlock struct {
-	speed, rebound float64
-	quickcenter    bool
-}
-
-func (b *IncrementalBlock) Setup(c Config) {
-	b.speed = c.Float64("speed") * c.TickTime()
-	b.rebound = c.OptFloat64("speed", 0.0) * c.TickTime()
-	b.quickcenter = OptBool("quickcenter", false)
-}
-
-func (b *IncrementalBlock) Tick(v float64) float64 {
-	if math.Abs(v) < 1e-3 {
-		switch {
-		case b.pos < -b.rebound:
-			b.pos += b.rebound
-		case b.rebound < pos:
-			b.pos -= b.rebound
-		default:
-			b.pos = 0
+func init() {
+	// add value to input
+	block.RegisterScalarFunc("offset", func(p block.Param) (func(float64) float64, error) {
+		ofs := p.Arg("value")
+		return func(v float64) float64 {
+			return v + ofs
 		}
-	} else {
-		if quickcenter && b.pos*v < 0 {
-			b.pos = 0
-		} else {
-			b.pos += v * b.speed
+	})
+
+	// zero input under abs. value, reduce bigger
+	block.RegisterScalarFunc("deadzone", func(p block.Param) (func(float64) float64, error) {
+		dz := p.Arg("treshold")
+		return func(v float64) float64 {
+			var s float64
+			if v < 0 {
+				v, s = -v, -1
+			} else {
+				s = 1
+			}
+			v -= dz
+			if v < 0 {
+				return 0
+			}
+			return v * s
+		}
+	})
+
+	// multiply input by factor
+	block.RegisterScalarFunc("multiply", func(p block.Param) (func(float64) float64, error) {
+		f := p.Arg("factor")
+		return func(v float64) float64 {
+			return v * f
+		}
+	})
+
+	// axis sensitivivy curve (factor: 0 - linear, positive: nonlinear)
+	block.RegisterScalarFunc("curvature", func(p block.Param) (func(float64) float64, error) {
+		pow := math.Pow(2, p.Arg("factor"))
+		return func(v float64) float64 {
+			s := float64(1)
+			if v < 0 {
+				s, v = -1, -v
+			}
+			return s * math.Pow(v, pow)
+		}
+	})
+
+	// truncate input above abs. value
+	block.RegisterScalarFunc("truncate", func(p block.Param) (func(float64) float64, error) {
+		t := p.Arg("value")
+		return func(v float64) float64 {
 			switch {
-			case b.pos < -1:
-				b.pos = -1
-			case 1 < b.pos:
-				b.pos = 1
+			case v < -t:
+				return -t
+			case t < v:
+				return t
+			}
+			return v
+		}
+	})
+
+	// set maximum input change to value/second
+	block.RegisterScalarFunc("dampen", func(p block.Param) (func(float64) float64, error) {
+		value := p.Arg("value")
+		if value < 1e-6 {
+			return func(v float64) float64 {
+				return v
 			}
 		}
-	}
-	return b.pos
-}
+		speed := t.TickTime() / value
+		var pos float64
+		return func(v float64) float64 {
+			switch {
+			case pos+speed < v:
+				pos += speed
+			case v < pos-speed:
+				pos -= speed
+			default:
+				pos = v
+			}
+			return pos
+		}
+	})
 
-type axisLogic interface {
-	Setup(c Config)
-	Tick(float64) float64
-}
+	// smooth inputs over time (seconds)
+	block.RegisterScalarFunc("smooth", func(p block.Param) (func(float64) float64, error) {
+		nsamples := math.Floor(p.Arg("time") * p.TickFreq())
+		if nsamples < 2 {
+			return func(v float64) float64 {
+				return v
+			}
+		}
 
-type axisBlock struct {
-	logic axisLogic
-	i     *block.ScalarValue
-	o     block.ScalarValue
-}
+		m0 := math.Pow(2, 63) / (nsamples * 100)
+		m1 := 1 / (m0 * nsamples)
 
-func newAxisBlock(l axisLogic) Block {
-	return &axisBlock{
-		logic: l,
-		i:     new(block.ScalarValue),
-	}
-}
+		posv := make([]int64, int(nsamples))
+		n := 0
+		var sum int64
 
-func (b *axisBlock) Inputs() InputMap   { return InputMap{"": &b.i} }
-func (b *axisBlock) Outputs() OutputMap { return OutputMap{"": &b.o} }
+		return func(v float64) float64 {
+			iv := int64(v * m0)
+			sum -= posv[n]
+			posv[n], n = iv, (n+1)%len(posv)
+			sum += iv
+			return float64(sum) * m1
+		}
+	})
 
-func (b *axisBlock) Setup(c Config) {
-	b.logic.Setup(c)
-}
+	// use input as delta, change values by speed/second
+	block.RegisterScalarFunc("incremental", func(p block.Param) (func(float64) float64, error) {
+		speed := p.Arg("speed")
+		rebound := p.OptArg("rebound", 0)
+		quickcenter := 0 != p.OptArg("quickcenter", 0)
 
-func (b *axisBlock) Tick() {
-	b.o = block.ScalarValue(b.logic.Tick(float64(*b.i)))
-}
+		speed *= p.TickTime()
+		rebound *= p.TickTime()
 
-func init() {
-	block.Register("offset", func() Block { return newAxisBlock(new(OffsetBlock)) })
-	block.Register("deadzone", func() Block { return newAxisBlock(new(DeadzoneBlock)) })
-	block.Register("multiply", func() Block { return newAxisBlock(new(MultiplyBlock)) })
-	block.Register("curvature", func() Block { return newAxisBlock(new(CurvatureBlock)) })
-	block.Register("truncate", func() Block { return newAxisBlock(new(TruncateBlock)) })
-	block.Register("dampen", func() Block { return newAxisBlock(new(DampenBlock)) })
-	block.Register("smooth", func() Block { return newAxisBlock(new(SmoothBlock)) })
-	block.Register("incremental", func() Block { return newAxisBlock(new(IncrementalBlock)) })
+		var pos float64
+
+		return func(v float64) float64 {
+			if math.Abs(v) < 1e-3 {
+				switch {
+				case pos < -rebound:
+					pos += rebound
+				case rebound < pos:
+					pos -= rebound
+				default:
+					pos = 0
+				}
+			} else {
+				if quickcenter && pos*v < 0 {
+					pos = 0
+				} else {
+					pos += v * speed
+					switch {
+					case pos < -1:
+						pos = -1
+					case 1 < pos:
+						pos = 1
+					}
+				}
+			}
+			return pos
+		}
+	})
 }

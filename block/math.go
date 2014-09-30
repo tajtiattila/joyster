@@ -52,7 +52,7 @@ func (b *mathopblk) SetInput(sel string, port Port) error {
 	}
 	i, ok := port.(*float64)
 	if !ok {
-		return fmt.Errorf("'%s' block needs scalar, not %s", b.typ, PortString(port))
+		return fmt.Errorf("'%s' block needs scalar for '%s', not %s", b.typ, sel, PortString(port))
 	}
 	if sel == "1" {
 		b.i1 = i
