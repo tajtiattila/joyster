@@ -67,7 +67,9 @@ func RegisterStickFunc(name string, ff func(p Param) (StickFunc, error)) {
 		if err != nil {
 			return nil, err
 		}
-		return &stickfuncblk{typ: name, f: f}, nil
+		b := &stickfuncblk{typ: name, f: f}
+		println("createStickFunc", name, p)
+		return b, nil
 	})
 }
 
@@ -86,8 +88,11 @@ func (b *stickfuncblk) Output() OutputMap {
 	return MapOutput(b.typ, map[string]interface{}{"x": &b.xo, "y": &b.yo})
 }
 
-func (b *stickfuncblk) Validate() error { return CheckInputs(b.typ, &b.xi, &b.yi) }
-func (b *stickfuncblk) Tick()           { b.xo, b.yo = b.f(*b.xi, *b.yi) }
+func (b *stickfuncblk) Validate() error {
+	println("stickfuncblk validate", b, b.xi, b.yi, CheckInputs(b.typ, &b.xi, &b.yi))
+	return CheckInputs(b.typ, &b.xi, &b.yi)
+}
+func (b *stickfuncblk) Tick() { b.xo, b.yo = b.f(*b.xi, *b.yi) }
 
 func init() {
 	Register("stick", func() Block { return new(stickblk) })

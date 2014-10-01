@@ -49,15 +49,15 @@ func CheckInput(i interface{}) error {
 	}
 	switch x := i.(type) {
 	case **bool:
-		if x != nil {
+		if *x != nil {
 			return nil
 		}
 	case **float64:
-		if x != nil {
+		if *x != nil {
 			return nil
 		}
 	case **int:
-		if x != nil {
+		if *x != nil {
 			return nil
 		}
 	default:

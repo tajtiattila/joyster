@@ -1,12 +1,14 @@
 package parser
 
 import (
-//"fmt"
+	"fmt"
+	//"fmt"
 )
 
 /*
 stmt :=
 	'block' name blockspec
+	'port' name block ['.' spec]
 	'conn' portspec portspec
 	'set' namedarglist
 arglist := posarglist | namedarglist
@@ -38,8 +40,7 @@ plugvalue :=
 
 type parser struct {
 	*Context
-	r     *sourcereader
-	specs []BlkSpec
+	r *sourcereader
 }
 
 // copy of values in block
@@ -63,9 +64,11 @@ var singlePort = []string{""}
 func newparser(t TypeMap) *parser {
 	return &parser{
 		Context: &Context{
-			TypeMap: t,
-			Config:  make(map[string]float64),
-			Names: map[string]BlkSpec{
+			TypeMap:     t,
+			Config:      make(map[string]float64),
+			sinkNames:   make(map[string]*Blk),
+			sourceNames: make(map[string]*Blk),
+			PortNames: map[string]SpecSource{
 				"true":       constbool(true),
 				"on":         constbool(true),
 				"false":      constbool(false),
@@ -97,12 +100,14 @@ func (p *parser) parse(src []byte) (err error) {
 	}()
 	p.parseimpl()
 
-	for _, c := range p.Conns {
-		_, ok := p.Names[c.name]
-		if !ok {
-			return srcerrf(c, "conn target %s missing", c.name)
+	/*
+		for _, c := range p.Conns {
+			_, ok := p.Names[c.name]
+			if !ok {
+				return srcerrf(c, "conn target %s missing", c.name)
+			}
 		}
-	}
+	*/
 
 	return
 }
@@ -123,17 +128,19 @@ func (p *parser) parseimpl() {
 				p.Config[n] = v
 			}
 			p.r.endstatement()
+		case p.r.eat("port"):
+			name := p.r.name()
+			p.r.skiplinespace()
+			blk, spec := p.r.spec()
+			p.PortNames[name] = &namedsource{p.r.sourceline(), blk, spec}
 		case p.r.eat("block"):
 			name := p.r.name()
-			if _, ok := p.Names[name]; ok {
-				panic("duplicate name")
-			}
-			p.Names[name] = p.topblockspec(anyblock)
+			p.topblockspec(name)
 			p.r.endstatement()
 		case p.r.eat("conn"):
 			name, spec := p.r.spec()
 			lineno := p.r.sourceline()
-			p.Conns = append(p.Conns, connspec{name, spec, p.parseblockspec(needoutput("")), lineno})
+			p.vlink = append(p.vlink, Link{&namedsink{lineno, name, spec}, p.parsesource()})
 			p.r.endstatement()
 		default:
 			panic("unexpected")
@@ -141,42 +148,72 @@ func (p *parser) parseimpl() {
 	}
 }
 
-func (p *parser) topblockspec(constr *blkconstraint) BlkSpec {
-	p.r.skiplinespace()
-	switch {
-	case p.r.eatch('{'):
-		return p.parsegroup(constr)
+func (p *parser) topblockspec(name string) {
+	if _, ok := p.PortNames[name]; ok {
+		panic("duplicate name")
 	}
-	return p.parseblockspec(constr)
+	if _, ok := p.sinkNames[name]; ok {
+		panic("duplicate name")
+	}
+	if _, ok := p.sourceNames[name]; ok {
+		panic("duplicate name")
+	}
+	p.r.skiplinespace()
+	switch p.r.ch() {
+	case '{':
+		p.parsegroup(name)
+	case '[':
+		p.parseblock(name)
+	default:
+		panic("invalid block specification")
+	}
+	return
 }
 
-func (p *parser) parseblockspec(constr *blkconstraint) BlkSpec {
+func (p *parser) parsesource() (input SpecSource) {
 	p.r.skiplinespace()
 	switch {
 	case p.r.ch() == '[':
-		lineno := p.r.sourceline()
-		f, i := p.parsefactory(constr)
-		blk := &factoryblkspec{lineno: lineno, factory: *f, inputs: i}
-		p.addspec(blk)
-		return blk
+		lno := p.r.sourceline()
+		f, inputs := p.parsefactory(&blkconstraint{
+			inpdisp:    inpdef_required,
+			mustoutput: []string{""},
+		})
+		blk := &Blk{Name: fmt.Sprintf("«%s:%d»", f.tname, lno), Type: f.typ, Param: f.param}
+		for i, n := range f.typ.InputNames() {
+			p.vlink = append(p.vlink, Link{&concreteblksink{lno, blk, n}, inputs[i]})
+		}
+		p.vblk = append(p.vblk, blk)
+		input = &concreteblksource{lno, blk, ""}
 	case isnumstart(p.r.ch()):
-		if !constr.valueallowed() {
-			panic("value not allowed")
-		}
 		n := p.r.number()
-		return p.addspec(&valueblkspec{constblkspec{&n}, p.r.sourceline()})
+		input = &valueport{p.r.sourceline(), constport{&n}}
 	default:
-		if !constr.valueallowed() {
-			panic("value not allowed")
-		}
 		n, s := p.r.spec()
-		blk := &namedblkspec{p.r.sourceline(), n, s}
-		p.Refs = append(p.Refs, blk)
-		return p.addspec(blk)
+		input = &namedsource{p.r.sourceline(), n, s}
 	}
+	return
 }
 
-func (p *parser) parsegroup(constr *blkconstraint) BlkSpec {
+func (p *parser) parseblock(name string) {
+	lno := p.r.sourceline()
+	f, inputs := p.parsefactory(&blkconstraint{})
+	blk := &Blk{Name: name, Type: f.typ, Param: f.param}
+	if len(inputs) == 0 {
+		p.sinkNames[name] = blk
+	} else {
+		for i, n := range f.typ.InputNames() {
+			p.vlink = append(p.vlink, Link{&concreteblksink{lno, blk, n}, inputs[i]})
+		}
+	}
+	p.sourceNames[name] = blk
+}
+
+func (p *parser) parsegroup(name string) {
+	if !p.r.eatch('{') {
+		panic("invalid group block spec")
+	}
+	// TODO
 	var names []string
 	for {
 		p.r.skipallspace()
@@ -205,10 +242,9 @@ func (p *parser) parsegroup(constr *blkconstraint) BlkSpec {
 		child := grpchild{dollar, *f}
 		grp.v = append(grp.v, child)
 	}
-	return p.addspec(grp)
 }
 
-func (p *parser) parsefactory(constr *blkconstraint) (f *factory, inputs []BlkSpec) {
+func (p *parser) parsefactory(constr *blkconstraint) (f *factory, inputs []SpecSource) {
 	p.r.skiplinespace()
 	if !p.r.eatch('[') {
 		panic("invalid factory block spec")
@@ -258,8 +294,7 @@ func (p *parser) parsefactory(constr *blkconstraint) (f *factory, inputs []BlkSp
 		if constr.inpdisp == inpdef_prohibited {
 			panic(errf("input declaration for '%s' not allowed", f.tname))
 		}
-		input := p.parseblockspec(needoutput(""))
-		inputs = append(inputs, input)
+		inputs = append(inputs, p.parsesource())
 	}
 
 	switch constr.inpdisp {
@@ -307,13 +342,8 @@ func (p *parser) parseparam() Param {
 	return nil
 }
 
-func (p *parser) addspec(s BlkSpec) BlkSpec {
-	p.specs = append(p.specs, s)
-	return s
-}
-
-func constint(v int) *constblkspec   { return &constblkspec{&v} }
-func constbool(b bool) *constblkspec { return &constblkspec{&b} }
+func constint(v int) *constport   { return &constport{v} }
+func constbool(b bool) *constport { return &constport{b} }
 
 func nice(d portdir, n string) string {
 	var dir string

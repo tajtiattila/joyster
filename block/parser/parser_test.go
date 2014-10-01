@@ -87,8 +87,8 @@ conn output.hat3 [if plane2 input.dpad centre]
 conn output.hat4 [if plane3 input.dpad centre]
 
 # logic
-block shift0 input.lbumper
-block shift1 input.rbumper
+port shift0 input.lbumper
+port shift1 input.rbumper
 
 block plane0 [and [not shift0] [not shift1]]
 block plane1 [and shift0 [not shift1]]
