@@ -1,38 +1,24 @@
 package parser
 
-import (
-	"github.com/tajtiattila/joyster/block"
-)
-
-type paramspec interface {
-	Prepare(c *Context) param
+type Param interface {
+	Reader(globals NamedParam) ParamReader
 }
 
-type param interface {
-	block.Param
-	err() error
+type PosParam []float64
+
+func (p PosParam) Reader(globals NamedParam) ParamReader { return newpospr(p, globals) }
+
+type NamedParam map[string]float64
+
+func (p NamedParam) Reader(globals NamedParam) ParamReader { return newnamedpr(p, globals) }
+
+type ParamReader interface {
+	Arg(n string) float64
+	OptArg(n string, def float64) float64
+	Err() error
 }
 
-type posparamspec []float64
-
-func (spec posparamspec) Prepare(c *Context) param {
-	return &positionalparam{
-		v:       spec,
-		globals: c.config,
-	}
-}
-
-type namedparamspec map[string]float64
-
-func (spec namedparamspec) Prepare(c *Context) param {
-	return &namedparam{
-		m:       spec,
-		globals: c.config,
-		used:    make(map[string]bool),
-	}
-}
-
-type positionalparam struct {
+type pospr struct {
 	v       []float64
 	globals map[string]float64
 
@@ -40,7 +26,9 @@ type positionalparam struct {
 	firsterr error
 }
 
-func (p *positionalparam) Arg(n string) float64 {
+func newpospr(p PosParam, globals NamedParam) ParamReader { return &pospr{v: p, globals: globals} }
+
+func (p *pospr) Arg(n string) float64 {
 	if p.idx < len(p.v) {
 		i := p.idx
 		p.idx++
@@ -55,7 +43,7 @@ func (p *positionalparam) Arg(n string) float64 {
 	return 0
 }
 
-func (p *positionalparam) OptArg(n string, def float64) float64 {
+func (p *pospr) OptArg(n string, def float64) float64 {
 	if p.idx < len(p.v) {
 		i := p.idx
 		p.idx++
@@ -67,15 +55,7 @@ func (p *positionalparam) OptArg(n string, def float64) float64 {
 	return def
 }
 
-func (p *positionalparam) TickFreq() float64 {
-	return 1 / p.TickTime()
-}
-
-func (p *positionalparam) TickTime() float64 {
-	return p.OptArg("update", block.DefaultTickTime)
-}
-
-func (p *positionalparam) err() error {
+func (p *pospr) Err() error {
 	if p.firsterr != nil {
 		return p.firsterr
 	}
@@ -85,7 +65,7 @@ func (p *positionalparam) err() error {
 	return nil
 }
 
-type namedparam struct {
+type namedpr struct {
 	m       map[string]float64
 	globals map[string]float64
 
@@ -93,7 +73,9 @@ type namedparam struct {
 	firsterr error
 }
 
-func (p *namedparam) Arg(n string) float64 {
+func newnamedpr(p, globals NamedParam) ParamReader { return &namedpr{m: p, globals: globals} }
+
+func (p *namedpr) Arg(n string) float64 {
 	v, ok := p.val(n, 0)
 	if !ok && p.firsterr == nil {
 		p.firsterr = errf("argument '%s' missing", n)
@@ -101,20 +83,12 @@ func (p *namedparam) Arg(n string) float64 {
 	return v
 }
 
-func (p *namedparam) OptArg(n string, def float64) float64 {
+func (p *namedpr) OptArg(n string, def float64) float64 {
 	v, _ := p.val(n, def)
 	return v
 }
 
-func (p *namedparam) TickFreq() float64 {
-	return 1 / p.TickTime()
-}
-
-func (p *namedparam) TickTime() float64 {
-	return p.OptArg("update", block.DefaultTickTime)
-}
-
-func (p *namedparam) val(n string, def float64) (v float64, ok bool) {
+func (p *namedpr) val(n string, def float64) (v float64, ok bool) {
 	if v, ok = p.m[n]; ok {
 		p.used[n] = true
 		return
@@ -125,7 +99,7 @@ func (p *namedparam) val(n string, def float64) (v float64, ok bool) {
 	return def, false
 }
 
-func (p *namedparam) err() error {
+func (p *namedpr) Err() error {
 	if p.firsterr != nil {
 		return p.firsterr
 	}

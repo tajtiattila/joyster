@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-type sourceliner interface {
-	sourceline() int
+type srcliner interface {
+	SrcLine() int
 }
 
 func errf(f string, v ...interface{}) error {
@@ -22,8 +22,8 @@ func (e *sourceerror) Error() string {
 	return fmt.Sprintf("line %d: ", e.lineno) + e.err.Error()
 }
 
-func srcerr(s sourceliner, i interface{}) error {
-	n := s.sourceline()
+func srcerr(s srcliner, i interface{}) error {
+	n := s.SrcLine()
 	switch x := i.(type) {
 	case *sourceerror:
 		return x
@@ -33,6 +33,6 @@ func srcerr(s sourceliner, i interface{}) error {
 	return &sourceerror{n, errors.New(fmt.Sprint(i))}
 }
 
-func srcerrf(s sourceliner, f string, args ...interface{}) error {
+func srcerrf(s srcliner, f string, args ...interface{}) error {
 	return srcerr(s, fmt.Sprintf(f, args...))
 }

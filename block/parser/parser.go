@@ -1,8 +1,7 @@
 package parser
 
 import (
-	"fmt"
-	"github.com/tajtiattila/joyster/block"
+//"fmt"
 )
 
 /*
@@ -40,117 +39,71 @@ plugvalue :=
 type parser struct {
 	*Context
 	r     *sourcereader
-	specs []blockspec
+	specs []BlkSpec
 }
 
-func newparser(p []byte) *parser {
+// copy of values in block
+const (
+	hatC = 0
+	hatN = 1
+	hatE = 2
+	hatS = 4
+	hatW = 8
+)
+
+type portdir int
+
+const (
+	outport portdir = 1
+	inport  portdir = 2
+)
+
+var singlePort = []string{""}
+
+func newparser(t TypeMap) *parser {
 	return &parser{
 		Context: &Context{
-			Profile:   new(block.Profile),
-			config:    make(map[string]float64),
-			blockline: make(map[block.Block]int),
-			names: map[string]blockspec{
+			TypeMap: t,
+			Config:  make(map[string]float64),
+			Names: map[string]BlkSpec{
 				"true":       constbool(true),
 				"on":         constbool(true),
 				"false":      constbool(false),
 				"off":        constbool(false),
-				"hat_off":    constint(block.HatCentre),
-				"hat_centre": constint(block.HatCentre),
-				"hat_center": constint(block.HatCentre),
-				"hat_north":  constint(block.HatNorth),
-				"hat_east":   constint(block.HatEast),
-				"hat_south":  constint(block.HatSouth),
-				"hat_west":   constint(block.HatWest),
-				"centre":     constint(block.HatCentre),
-				"center":     constint(block.HatCentre),
-				"north":      constint(block.HatNorth),
-				"east":       constint(block.HatEast),
-				"south":      constint(block.HatSouth),
-				"west":       constint(block.HatWest),
+				"hat_off":    constint(hatC),
+				"hat_centre": constint(hatC),
+				"hat_center": constint(hatC),
+				"hat_north":  constint(hatN),
+				"hat_east":   constint(hatE),
+				"hat_south":  constint(hatS),
+				"hat_west":   constint(hatW),
+				"centre":     constint(hatC),
+				"center":     constint(hatC),
+				"north":      constint(hatN),
+				"east":       constint(hatE),
+				"south":      constint(hatS),
+				"west":       constint(hatW),
 			},
 		},
-		r: &sourcereader{src: p},
 	}
 }
 
-func (p *parser) parse() (err error) {
+func (p *parser) parse(src []byte) (err error) {
+	p.r = &sourcereader{src: src}
 	defer func() {
 		if r := recover(); r != nil {
-			err = p.r.formaterror(r.(string))
+			err = p.r.formaterror(r)
 		}
 	}()
 	p.parseimpl()
-	for _, c := range p.conns {
-		tblks, ok := p.names[c.name]
+
+	for _, c := range p.Conns {
+		_, ok := p.Names[c.name]
 		if !ok {
-			return srcerrf(p.r, "conn target %s missing", c.name)
-		}
-		p.dependency(tblks, c.blockspec)
-	}
-	for _, s := range p.specs {
-		s.Deps(p.Context)
-	}
-	for {
-		done, progress := true, false
-		for k := range p.deps {
-			var w []blockspec
-			for _, dep := range p.deps[k] {
-				done = false
-				if wd, ok := p.deps[dep]; !ok || len(wd) == 0 {
-					progress = true
-					blk, err := dep.Prepare(p.Context)
-					if err != nil {
-						return err
-					}
-					fmt.Printf("depfix %s -> %p\n", dep.String(), blk)
-					if err = blk.Validate(); err != nil {
-						return errf("dependency failure on %s: %v", dep.String(), err)
-					}
-				} else {
-					w = append(w, dep)
-				}
-			}
-			p.deps[k] = w
-		}
-		if done {
-			break
-		}
-		if !progress {
-			return errf("circular dependency")
+			return srcerrf(c, "conn target %s missing", c.name)
 		}
 	}
-	for _, c := range p.conns {
-		tblks, ok := p.names[c.name]
-		if !ok {
-			return srcerrf(p.r, "conn target %s missing", c.name)
-		}
-		tblk, err := tblks.Prepare(p.Context)
-		if err != nil {
-			return srcerr(p.r, err)
-		}
-		is := tblk.Input()
-		if is == nil {
-			return srcerrf(p.r, "conn target %s has no inputs", c.name)
-		}
-		sblk, err := c.blockspec.Prepare(p.Context)
-		if err != nil {
-			return srcerr(p.r, err)
-		}
-		os := sblk.Output()
-		if os == nil {
-			return srcerrf(p.r, "source of conn %s has no outputs", c.name)
-		}
-		port, err := os.Get("")
-		if err != nil {
-			return srcerr(p.r, err)
-		}
-		is.Set(c.sel, port)
-	}
-	for blk, lineno := range p.blockline {
-		if err := blk.Validate(); err != nil {
-			return errf("line %d: validation failure: %v", lineno, err)
-		}
-	}
+
 	return
 }
 
@@ -162,25 +115,25 @@ func (p *parser) parseimpl() {
 			p.r.skipline()
 		case p.r.eat("set"):
 			p.r.skiplinespace()
-			m, ok := p.parseparam().(namedparamspec)
+			m, ok := p.parseparam().(NamedParam)
 			if !ok {
-				panic("positional arguments in set")
+				panic("'set' needs named parameters")
 			}
 			for n, v := range m {
-				p.config[n] = v
+				p.Config[n] = v
 			}
 			p.r.endstatement()
 		case p.r.eat("block"):
 			name := p.r.name()
-			if _, ok := p.names[name]; ok {
+			if _, ok := p.Names[name]; ok {
 				panic("duplicate name")
 			}
-			p.names[name] = p.parseblockspec(true)
+			p.Names[name] = p.topblockspec(anyblock)
 			p.r.endstatement()
 		case p.r.eat("conn"):
 			name, spec := p.r.spec()
 			lineno := p.r.sourceline()
-			p.conns = append(p.conns, connspec{name, spec, p.parseblockspec(true), lineno})
+			p.Conns = append(p.Conns, connspec{name, spec, p.parseblockspec(needoutput("")), lineno})
 			p.r.endstatement()
 		default:
 			panic("unexpected")
@@ -188,79 +141,147 @@ func (p *parser) parseimpl() {
 	}
 }
 
-func (p *parser) parseblockspec(inputs bool) blockspec {
+func (p *parser) topblockspec(constr *blkconstraint) BlkSpec {
 	p.r.skiplinespace()
 	switch {
-	case isblkdefstart(p.r.ch()):
-		return p.parsetypedblockspec(inputs)
 	case p.r.eatch('{'):
-		var names []string
-		for {
-			p.r.skipallspace()
-			if isblkdefstart(p.r.ch()) {
-				break
-			}
-			names = append(names, p.r.name())
-		}
-		grp := &groupblkspec{lineno: p.r.sourceline(), sels: names}
-		for {
-			p.r.skipallspace()
-			if !isblkdefstart(p.r.ch()) {
-				if p.r.eatch('}') {
-					break
-				}
-				panic("unclosed group")
-			}
-			grp.v = append(grp.v, p.parsetypedblockspec(false))
-		}
-		return p.addspec(grp)
+		return p.parsegroup(constr)
+	}
+	return p.parseblockspec(constr)
+}
+
+func (p *parser) parseblockspec(constr *blkconstraint) BlkSpec {
+	p.r.skiplinespace()
+	switch {
+	case p.r.ch() == '[':
+		lineno := p.r.sourceline()
+		f, i := p.parsefactory(constr)
+		blk := &factoryblkspec{lineno: lineno, factory: *f, inputs: i}
+		p.addspec(blk)
+		return blk
 	case isnumstart(p.r.ch()):
+		if !constr.valueallowed() {
+			panic("value not allowed")
+		}
 		n := p.r.number()
 		return p.addspec(&valueblkspec{constblkspec{&n}, p.r.sourceline()})
 	default:
+		if !constr.valueallowed() {
+			panic("value not allowed")
+		}
 		n, s := p.r.spec()
-		return p.addspec(&namedblkspec{p.r.sourceline(), n, s})
+		blk := &namedblkspec{p.r.sourceline(), n, s}
+		p.Refs = append(p.Refs, blk)
+		return p.addspec(blk)
 	}
 }
 
-func (p *parser) parsetypedblockspec(allowinput bool) *factoryblkspec {
-	dollar := p.r.eatch('$')
-	if dollar {
-		p.r.skiplinespace()
+func (p *parser) parsegroup(constr *blkconstraint) BlkSpec {
+	var names []string
+	for {
+		p.r.skipallspace()
+		if isblkdefstart(p.r.ch()) {
+			break
+		}
+		names = append(names, p.r.name())
 	}
+	grp := &groupblkspec{lineno: p.r.sourceline(), sels: names}
+	for {
+		p.r.skipallspace()
+		if !isblkdefstart(p.r.ch()) {
+			if p.r.eatch('}') {
+				break
+			}
+			panic("unclosed group")
+		}
+		var childconstr *blkconstraint
+		dollar := p.r.eatch('$')
+		if dollar {
+			childconstr = haveinout("")
+		} else {
+			childconstr = haveinout(names...)
+		}
+		f, _ := p.parsefactory(childconstr)
+		child := grpchild{dollar, *f}
+		grp.v = append(grp.v, child)
+	}
+	return p.addspec(grp)
+}
+
+func (p *parser) parsefactory(constr *blkconstraint) (f *factory, inputs []BlkSpec) {
+	p.r.skiplinespace()
 	if !p.r.eatch('[') {
-		panic("invalid typed block spec")
+		panic("invalid factory block spec")
 	}
-	blk := &factoryblkspec{lineno: p.r.sourceline(), dollar: dollar, typ: p.r.name()}
+	f = new(factory)
+	f.tname = p.r.name()
+	var err error
+	f.typ, err = p.GetType(f.tname)
+	if err != nil {
+		panic(err)
+	}
+	if len(constr.mustoutput) != 0 {
+		for _, n := range constr.mustoutput {
+			if !has(f.typ.OutputNames(), n) {
+				panic(errf("type '%s' does not have required %s",
+					f.tname, nice(outport, n)))
+			}
+		}
+	}
+	if len(constr.mustonlyinput) != 0 {
+		if len(constr.mustonlyinput) != len(f.typ.InputNames()) {
+			panic(errf("type '%s' must have %d inputs, not %d",
+				f.tname, len(constr.mustonlyinput), len(f.typ.InputNames())))
+		}
+		for _, n := range constr.mustonlyinput {
+			if !has(f.typ.InputNames(), n) {
+				panic(errf("type '%s' does not have required %s", f.tname, nice(inport, n)))
+			}
+		}
+	}
+
 	for {
 		p.r.skiplinespace()
 		if p.r.eatch(']') {
 			break
 		}
 		if p.r.eatch(':') {
-			blk.param = p.parseparam()
+			f.param = p.parseparam()
 			if !p.r.eatch(']') {
 				panic("unclosed argument block")
 			}
 			break
 		} else {
-			var emptyparam posparamspec
-			blk.param = emptyparam
+			var emptyparam PosParam
+			f.param = emptyparam
 		}
-		if !allowinput {
-			panic("input declaration not allowed")
+		if constr.inpdisp == inpdef_prohibited {
+			panic(errf("input declaration for '%s' not allowed", f.tname))
 		}
-		input := p.parseblockspec(allowinput)
-		blk.inputs = append(blk.inputs, input)
+		input := p.parseblockspec(needoutput(""))
+		inputs = append(inputs, input)
 	}
-	p.addspec(blk)
-	return blk
+
+	switch constr.inpdisp {
+	case inpdef_required:
+		if len(inputs) != len(f.typ.InputNames()) {
+			panic(errf("input count mismatch for '%s': needed %d, have %d",
+				f.tname, len(f.typ.InputNames()), len(inputs)))
+		}
+	case inpdef_allowed:
+		if len(inputs) != 0 && len(inputs) != len(f.typ.InputNames()) {
+			panic(errf("input count mismatch for '%s': needs either zero or %d, have %d",
+				f.tname, len(f.typ.InputNames()), len(inputs)))
+		}
+	}
+
+	return
 }
 
-func (p *parser) parseparam() paramspec {
+func (p *parser) parseparam() Param {
 	p.r.skiplinespace()
 	if isdigit(p.r.ch()) || p.r.ch() == '-' {
-		var param posparamspec
+		var param PosParam
 		for {
 			param = append(param, p.r.number())
 			if !isdigit(p.r.ch()) {
@@ -269,7 +290,7 @@ func (p *parser) parseparam() paramspec {
 		}
 		return param
 	} else {
-		param := make(namedparamspec)
+		param := make(NamedParam)
 		for {
 			name := p.r.name()
 			if !p.r.eatch('=') {
@@ -286,7 +307,7 @@ func (p *parser) parseparam() paramspec {
 	return nil
 }
 
-func (p *parser) addspec(s blockspec) blockspec {
+func (p *parser) addspec(s BlkSpec) BlkSpec {
 	p.specs = append(p.specs, s)
 	return s
 }
@@ -294,6 +315,53 @@ func (p *parser) addspec(s blockspec) blockspec {
 func constint(v int) *constblkspec   { return &constblkspec{&v} }
 func constbool(b bool) *constblkspec { return &constblkspec{&b} }
 
+func nice(d portdir, n string) string {
+	var dir string
+	if d == inport {
+		dir = "input"
+	} else {
+		dir = "output"
+	}
+	if n == "" {
+		return "unnamed " + dir
+	}
+	return dir + " '" + n + "'"
+}
+
 func isblkdefstart(r rune) bool {
 	return r == '[' || r == '$'
+}
+
+const (
+	inpdef_allowed = iota
+	inpdef_required
+	inpdef_prohibited
+)
+
+type blkconstraint struct {
+	inpdisp       int
+	mustonlyinput []string // blk must have exactly these inputs
+	mustoutput    []string // blk must have this output fields
+}
+
+var anyblock = &blkconstraint{}
+
+func needoutput(names ...string) *blkconstraint { return &blkconstraint{mustoutput: names} }
+
+func haveinout(names ...string) *blkconstraint {
+	return &blkconstraint{
+		inpdisp:       inpdef_prohibited,
+		mustonlyinput: names,
+		mustoutput:    names,
+	}
+}
+
+func (c *blkconstraint) valueallowed() bool {
+	if c.inpdisp == inpdef_required {
+		return false
+	}
+	if len(c.mustoutput) > 1 || len(c.mustoutput) == 1 && c.mustoutput[0] != "" {
+		return false
+	}
+	return true
 }

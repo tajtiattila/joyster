@@ -2,8 +2,6 @@ package parser
 
 import (
 	"fmt"
-	"github.com/tajtiattila/joyster/block"
-	_ "github.com/tajtiattila/joyster/block/logic"
 	"testing"
 )
 
@@ -144,55 +142,119 @@ conn headlook.y [if headlooktoggle rs.y 0]
 conn headlook.enable headlooktoggle
 `)
 
-var vjoyblkmap = make(map[string]interface{})
-var inputblkmap = make(map[string]interface{})
-
 func init() {
-	for _, n := range []string{"x", "y", "z", "rx", "ry", "rz", "u", "v"} {
-		v := new(float64)
-		vjoyblkmap[n] = &v
-	}
-	for i := 1; i <= 32; i++ {
-		v := new(bool)
-		vjoyblkmap[fmt.Sprint(i)] = &v
-	}
-	for i := 1; i <= 4; i++ {
-		v := new(int)
-		vjoyblkmap[fmt.Sprint("hat", i)] = &v
-	}
-	block.RegisterParam("vjoy", func(p block.Param) (block.Block, error) {
-		_ = p.Arg("device")
-		return &testvjoyblk{}, nil
-	})
-
-	for _, n := range []string{"lx", "ly", "rx", "ry", "ltrigger", "rtrigger"} {
-		inputblkmap[n] = new(float64)
-	}
-	inputblkmap["dpad"] = new(int)
-	for _, n := range []string{"buttona", "buttonb", "buttonx", "buttony",
-		"lbumper", "rbumper", "lthumb", "rthumb", "back", "start"} {
-		inputblkmap[n] = new(bool)
-	}
-	block.RegisterParam("gamepad", func(p block.Param) (block.Block, error) {
-		_ = p.Arg("device")
-		return &testgamepadblk{}, nil
-	})
 }
 
-type testvjoyblk struct{}
-
-func (*testvjoyblk) Output() block.OutputMap { return nil }
-func (*testvjoyblk) Input() block.InputMap   { return block.MapInput("vjoy", vjoyblkmap) }
-
-type testgamepadblk struct{}
-
-func (*testgamepadblk) Output() block.OutputMap { return block.MapOutput("gamepad", inputblkmap) }
-func (*testgamepadblk) Input() block.InputMap   { return nil }
-
 func TestParser(t *testing.T) {
-	p := newparser(testsrc)
-	if err := p.parse(); err != nil {
+	p := newparser(newtestnamespace())
+	if err := p.parse(testsrc); err != nil {
 		t.Error(err)
 	}
 	//t.Logf("%#v", p)
 }
+
+type testnamespace struct {
+	m map[string]Type
+}
+
+func (m *testnamespace) GetType(n string) (Type, error) {
+	if t, ok := m.m[n]; ok {
+		return t, nil
+	}
+	return nil, fmt.Errorf("unknown type '%s'", n)
+}
+
+func (m *testnamespace) add(k *testblkkind, names ...string) {
+	if m.m == nil {
+		m.m = make(map[string]Type)
+	}
+	for _, n := range names {
+		if _, ok := m.m[n]; ok {
+			panic("duplicate: " + n)
+		}
+		m.m[n] = k
+	}
+}
+
+func newtestnamespace() *testnamespace {
+	m := &testnamespace{make(map[string]Type)}
+	m.add(kind(bi(""), bo("")), "not", "toggle")
+	m.add(kind(bi("1"), bi("2"), bo("")), "and", "or", "xor")
+	m.add(kind(bi("cond"), bi("true"), bi("false"), bo("")), "if")
+
+	m.add(kind(si("1"), si("2"), so("")),
+		"add", "sub", "mul", "div", "mod", "pow", "min", "max", "absmin", "absmax")
+	m.add(kind(si("1"), si("2"), bo("")), "eq", "ne", "lt", "gt", "le", "ge")
+	m.add(kind(bi(""), bo(""), bo("1"), bo("2")), "multibutton")
+	m.add(kind(si(""), so("")),
+		"offset", "deadzone", "multiply", "curvature", "truncate", "dampen", "smooth", "incremental")
+	m.add(kind(si("x"), si("y"), so("x"), so("y")), "stick", "circlesquare", "circulardeadzone")
+	m.add(kind(si("left"), si("right"), so(""), so("break")), "triggeraxis")
+	m.add(kind(si("x"), si("y"), si("bool"), so("x"), so("y")), "headlook")
+
+	var vk []testio
+	for _, n := range []string{"x", "y", "z", "rx", "ry", "rz", "u", "v"} {
+		vk = append(vk, si(n))
+	}
+	for i := 1; i <= 32; i++ {
+		vk = append(vk, bi(fmt.Sprint(i)))
+	}
+	for i := 1; i <= 4; i++ {
+		vk = append(vk, hi(fmt.Sprint("hat", i)))
+	}
+	m.add(kind(vk...).inopt(), "vjoy")
+
+	gk := []testio{ho("dpad")}
+	for _, n := range []string{"lx", "ly", "rx", "ry", "lt", "rt"} {
+		gk = append(gk, so(n))
+	}
+	for _, n := range []string{"buttona", "buttonb", "buttonx", "buttony",
+		"ltrigger", "rtrigger",
+		"lbumper", "rbumper", "lthumb", "rthumb", "back", "start"} {
+		gk = append(gk, bo(n))
+	}
+	m.add(kind(gk...), "gamepad")
+	return m
+}
+
+type testblkkind struct {
+	inames   []string
+	onames   []string
+	optinput bool
+}
+
+func kind(vio ...testio) *testblkkind {
+	t := new(testblkkind)
+	for _, io := range vio {
+		if io.input {
+			t.inames = append(t.inames, io.name)
+		} else {
+			t.onames = append(t.onames, io.name)
+		}
+	}
+	return t
+}
+
+func (k *testblkkind) InputNames() []string  { return k.inames }
+func (k *testblkkind) OutputNames() []string { return k.onames }
+func (k *testblkkind) MustHaveInput() bool   { return !k.optinput }
+
+func (k *testblkkind) inopt() *testblkkind {
+	nk := new(testblkkind)
+	*nk = *k
+	nk.optinput = true
+	return nk
+}
+
+type testio struct {
+	name  string
+	input bool
+	p     interface{}
+}
+
+func bo(name string) testio { return testio{name, false, new(bool)} }
+func so(name string) testio { return testio{name, false, new(float64)} }
+func ho(name string) testio { return testio{name, false, new(int)} }
+func bi(name string) testio { return testio{name, true, new(bool)} }
+func si(name string) testio { return testio{name, true, new(float64)} }
+func hi(name string) testio { return testio{name, true, new(int)} }

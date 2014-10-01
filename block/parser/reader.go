@@ -53,6 +53,7 @@ func (r *sourcereader) endstatement() {
 			ok = true
 		case '\n':
 			r.nline++
+			r.pline = r.pos + 1
 			fallthrough
 		case ';':
 			ok = true
@@ -207,9 +208,9 @@ func (r *sourcereader) spec() (name, sel string) {
 	return
 }
 
-func (r *sourcereader) formaterror(msg string) error {
+func (r *sourcereader) formaterror(msg interface{}) error {
 	after := string(r.src[r.pline:r.pos])
-	return fmt.Errorf("line %d: %s... %s", r.nline, after, msg)
+	return fmt.Errorf("line %d: %s... %v", r.nline, after, msg)
 }
 
 type parseerr struct {
