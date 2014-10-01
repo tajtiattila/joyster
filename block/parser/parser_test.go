@@ -47,8 +47,8 @@ conn output.16 [if plane2 input.buttonb off]
 conn output.17 [if plane2 input.buttonx off]
 conn output.18 [if plane2 input.buttony off]
 
-conn output.19 [gt input.ltrigger 0.15]
-conn output.20 [gt input.rtrigger 0.15]
+conn output.19 [and fight input.ltrigger]
+conn output.20 [and fight input.rtrigger]
 
 conn output.21 [if plane3 input.buttona off]
 conn output.22 [if plane3 input.buttonb off]
@@ -95,7 +95,7 @@ block plane1 [and shift0 [not shift1]]
 block plane2 [and [not shift0] shift1]
 block plane3 [and shift0 shift1]
 
-block ta [triggeraxis input.ltrigger input.rtrigger: AxisThreshold=0.15 BreakThreshold=0.05 Exp=1.5]
+block ta [triggeraxis input.lt input.rt: AxisThreshold=0.15 BreakThreshold=0.05 Exp=1.5]
 
 block abtn [multibutton [if plane0 input.buttona off]: 2]
 
@@ -169,7 +169,7 @@ func (m *testnamespace) GetType(n string) (Type, error) {
 	return nil, fmt.Errorf("unknown type '%s'", n)
 }
 
-func (m *testnamespace) add(k *testblkkind, names ...string) {
+func (m *testnamespace) add(k Type, names ...string) {
 	if m.m == nil {
 		m.m = make(map[string]Type)
 	}
@@ -185,7 +185,7 @@ func newtestnamespace() *testnamespace {
 	m := &testnamespace{make(map[string]Type)}
 	m.add(kind(bi(""), bo("")), "not", "toggle")
 	m.add(kind(bi("1"), bi("2"), bo("")), "and", "or", "xor")
-	m.add(kind(bi("cond"), bi("true"), bi("false"), bo("")), "if")
+	m.add(&ifblkkind{*kind(bi("cond"), ai("then"), ai("else"))}, "if")
 
 	m.add(kind(si("1"), si("2"), so("")),
 		"add", "sub", "mul", "div", "mod", "pow", "min", "max", "absmin", "absmax")
@@ -194,8 +194,8 @@ func newtestnamespace() *testnamespace {
 	m.add(kind(si(""), so("")),
 		"offset", "deadzone", "multiply", "curvature", "truncate", "dampen", "smooth", "incremental")
 	m.add(kind(si("x"), si("y"), so("x"), so("y")), "stick", "circlesquare", "circulardeadzone")
-	m.add(kind(si("left"), si("right"), so(""), so("break")), "triggeraxis")
-	m.add(kind(si("x"), si("y"), si("bool"), so("x"), so("y")), "headlook")
+	m.add(kind(si("left"), si("right"), so(""), bo("break")), "triggeraxis")
+	m.add(kind(si("x"), si("y"), bi("enable"), so("x"), so("y")), "headlook")
 
 	var vk []testio
 	for _, n := range []string{"x", "y", "z", "rx", "ry", "rz", "u", "v"} {
@@ -223,8 +223,8 @@ func newtestnamespace() *testnamespace {
 }
 
 type testblkkind struct {
-	inames   []string
-	onames   []string
+	inames   PortMap
+	onames   PortMap
 	optinput bool
 }
 
@@ -232,17 +232,17 @@ func kind(vio ...testio) *testblkkind {
 	t := new(testblkkind)
 	for _, io := range vio {
 		if io.input {
-			t.inames = append(t.inames, io.name)
+			t.inames = append(t.inames, Port{io.name, io.typ})
 		} else {
-			t.onames = append(t.onames, io.name)
+			t.onames = append(t.onames, Port{io.name, io.typ})
 		}
 	}
 	return t
 }
 
-func (k *testblkkind) InputNames() []string  { return k.inames }
-func (k *testblkkind) OutputNames() []string { return k.onames }
-func (k *testblkkind) MustHaveInput() bool   { return !k.optinput }
+func (k *testblkkind) Input() PortMap         { return k.inames }
+func (k *testblkkind) Output(PortMap) PortMap { return k.onames }
+func (k *testblkkind) MustHaveInput() bool    { return !k.optinput }
 
 func (k *testblkkind) inopt() *testblkkind {
 	nk := new(testblkkind)
@@ -251,15 +251,31 @@ func (k *testblkkind) inopt() *testblkkind {
 	return nk
 }
 
+type ifblkkind struct {
+	testblkkind
+}
+
+func (k *ifblkkind) Output(im PortMap) PortMap {
+	if im == nil {
+		im = k.Input()
+	}
+	th, el := im.Port("then"), im.Port("else")
+	if th == el {
+		return PortMap{Port{"", th}}
+	}
+	return PortMap{Port{"", Invalid}}
+}
+
 type testio struct {
 	name  string
 	input bool
-	p     interface{}
+	typ   PortType
 }
 
-func bo(name string) testio { return testio{name, false, new(bool)} }
-func so(name string) testio { return testio{name, false, new(float64)} }
-func ho(name string) testio { return testio{name, false, new(int)} }
-func bi(name string) testio { return testio{name, true, new(bool)} }
-func si(name string) testio { return testio{name, true, new(float64)} }
-func hi(name string) testio { return testio{name, true, new(int)} }
+func bo(name string) testio { return testio{name, false, Bool} }
+func so(name string) testio { return testio{name, false, Scalar} }
+func ho(name string) testio { return testio{name, false, Hat} }
+func ai(name string) testio { return testio{name, true, Any} }
+func bi(name string) testio { return testio{name, true, Bool} }
+func si(name string) testio { return testio{name, true, Scalar} }
+func hi(name string) testio { return testio{name, true, Hat} }

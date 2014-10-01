@@ -43,10 +43,17 @@ type constport struct {
 	v interface{}
 }
 
+func constint(v int) *constport   { return &constport{v} }
+func constbool(b bool) *constport { return &constport{b} }
+
 func (*constport) SrcLine() int                 { return -1 }
 func (p *constport) Blk(*context) (*Blk, error) { return nil, nil }
 func (p *constport) Source(*context) (Source, error) {
-	return &ValueSource{p.v}, nil
+	s, err := Value(p.v)
+	if err != nil {
+		return nil, srcerr(p, err)
+	}
+	return s, nil
 }
 
 func (b *constport) String() string {
@@ -83,7 +90,7 @@ type concreteblksource struct {
 func (e *concreteblksource) SrcLine() int                 { return e.lno }
 func (e *concreteblksource) Blk(c *context) (*Blk, error) { return e.blk, nil }
 func (e *concreteblksource) Source(c *context) (Source, error) {
-	return BlkPortSource{e.blk, e.sel}, nil
+	return &BlkPortSource{e.blk, e.sel}, nil
 }
 
 func has(v []string, s string) bool {
@@ -167,5 +174,5 @@ func (e *namedsource) Source(c *context) (Source, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BlkPortSource{blk, sel}, nil
+	return &BlkPortSource{blk, sel}, nil
 }

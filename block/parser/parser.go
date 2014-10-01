@@ -155,13 +155,13 @@ func (p *parser) parsesource() (input specSource) {
 			mustoutput: []string{""},
 		})
 		blk := p.newblk(lno, fmt.Sprintf("«%s:%d»", f.tname, lno), f.typ, f.param)
-		for i, n := range f.typ.InputNames() {
+		for i, n := range f.typ.Input().Names() {
 			p.vlink = append(p.vlink, Link{&concreteblksink{lno, blk, n}, inputs[i]})
 		}
 		input = &concreteblksource{lno, blk, ""}
 	case isnumstart(p.r.ch()):
 		n := p.r.number()
-		input = &valueport{p.r.sourceline(), constport{&n}}
+		input = &valueport{p.r.sourceline(), constport{n}}
 	default:
 		n, s := p.r.spec()
 		input = nsource(p.r.sourceline(), n, s)
@@ -176,7 +176,7 @@ func (p *parser) parseblock(name string) {
 	if len(inputs) == 0 {
 		p.sinkNames[name] = blk
 	} else {
-		for i, n := range f.typ.InputNames() {
+		for i, n := range f.typ.Input().Names() {
 			p.vlink = append(p.vlink, Link{&concreteblksink{lno, blk, n}, inputs[i]})
 		}
 	}
@@ -261,19 +261,19 @@ func (p *parser) parsefactory(constr *blkconstraint) (f *factory, inputs []specS
 	}
 	if len(constr.mustoutput) != 0 {
 		for _, n := range constr.mustoutput {
-			if !has(f.typ.OutputNames(), n) {
+			if f.typ.Output(nil).Port(n) == Invalid {
 				panic(errf("type '%s' does not have required %s",
 					f.tname, nice(outport, n)))
 			}
 		}
 	}
 	if len(constr.mustonlyinput) != 0 {
-		if len(constr.mustonlyinput) != len(f.typ.InputNames()) {
+		if len(constr.mustonlyinput) != len(f.typ.Input()) {
 			panic(errf("type '%s' must have %d inputs, not %d",
-				f.tname, len(constr.mustonlyinput), len(f.typ.InputNames())))
+				f.tname, len(constr.mustonlyinput), len(f.typ.Input())))
 		}
 		for _, n := range constr.mustonlyinput {
-			if !has(f.typ.InputNames(), n) {
+			if f.typ.Input().Port(n) == Invalid {
 				panic(errf("type '%s' does not have required %s", f.tname, nice(inport, n)))
 			}
 		}
@@ -302,14 +302,14 @@ func (p *parser) parsefactory(constr *blkconstraint) (f *factory, inputs []specS
 
 	switch constr.inpdisp {
 	case inpdef_required:
-		if len(inputs) != len(f.typ.InputNames()) {
+		if len(inputs) != len(f.typ.Input().Names()) {
 			panic(errf("input count mismatch for '%s': needed %d, have %d",
-				f.tname, len(f.typ.InputNames()), len(inputs)))
+				f.tname, len(f.typ.Input().Names()), len(inputs)))
 		}
 	case inpdef_allowed:
-		if len(inputs) != 0 && len(inputs) != len(f.typ.InputNames()) {
+		if len(inputs) != 0 && len(inputs) != len(f.typ.Input().Names()) {
 			panic(errf("input count mismatch for '%s': needs either zero or %d, have %d",
-				f.tname, len(f.typ.InputNames()), len(inputs)))
+				f.tname, len(f.typ.Input().Names()), len(inputs)))
 		}
 	}
 
@@ -354,9 +354,6 @@ func (p *parser) newblk(lno int, name string, typ Type, param Param) *Blk {
 	p.vblk = append(p.vblk, blk)
 	return blk
 }
-
-func constint(v int) *constport   { return &constport{v} }
-func constbool(b bool) *constport { return &constport{b} }
 
 func nice(d portdir, n string) string {
 	var dir string

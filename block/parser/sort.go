@@ -57,9 +57,18 @@ func sort(ctx *context) error {
 
 	// validate block inputs
 	for _, blk := range ctx.vblk {
-		if blk.Type.MustHaveInput() && len(blk.Type.InputNames()) != len(blk.Inputs) {
+		if blk.Type.MustHaveInput() && len(blk.Type.Input()) != len(blk.Inputs) {
 			return errf("block '%s' defined on line %d has only %d of %d inputs set",
-				blk.Name, ctx.blklno[blk], len(blk.Inputs), len(blk.Type.InputNames()))
+				blk.Name, ctx.blklno[blk], len(blk.Inputs), len(blk.Type.Input().Names()))
+		}
+		for _, p := range blk.Type.Input() {
+			if input, ok := blk.Inputs[p.Name]; ok {
+				pt := input.Type()
+				if !Match(pt, p.Type) {
+					return errf("block '%s' type mismatch for %s on line %d: want %s, have %s",
+						blk.Name, nice(inport, p.Name), ctx.blklno[blk], PortStr(p.Type), PortStr(pt))
+				}
+			}
 		}
 	}
 
