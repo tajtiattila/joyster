@@ -39,7 +39,7 @@ plugvalue :=
 */
 
 type parser struct {
-	*Context
+	*context
 	r *sourcereader
 }
 
@@ -55,40 +55,15 @@ const (
 type portdir int
 
 const (
-	outport portdir = 1
-	inport  portdir = 2
+	port portdir = iota
+	outport
+	inport
 )
 
 var singlePort = []string{""}
 
 func newparser(t TypeMap) *parser {
-	return &parser{
-		Context: &Context{
-			TypeMap:     t,
-			Config:      make(map[string]float64),
-			sinkNames:   make(map[string]*Blk),
-			sourceNames: make(map[string]*Blk),
-			PortNames: map[string]SpecSource{
-				"true":       constbool(true),
-				"on":         constbool(true),
-				"false":      constbool(false),
-				"off":        constbool(false),
-				"hat_off":    constint(hatC),
-				"hat_centre": constint(hatC),
-				"hat_center": constint(hatC),
-				"hat_north":  constint(hatN),
-				"hat_east":   constint(hatE),
-				"hat_south":  constint(hatS),
-				"hat_west":   constint(hatW),
-				"centre":     constint(hatC),
-				"center":     constint(hatC),
-				"north":      constint(hatN),
-				"east":       constint(hatE),
-				"south":      constint(hatS),
-				"west":       constint(hatW),
-			},
-		},
-	}
+	return &parser{context: newcontext(t)}
 }
 
 func (p *parser) parse(src []byte) (err error) {
@@ -125,14 +100,14 @@ func (p *parser) parseimpl() {
 				panic("'set' needs named parameters")
 			}
 			for n, v := range m {
-				p.Config[n] = v
+				p.config[n] = v
 			}
 			p.r.endstatement()
 		case p.r.eat("port"):
 			name := p.r.name()
 			p.r.skiplinespace()
 			blk, spec := p.r.spec()
-			p.PortNames[name] = &namedsource{p.r.sourceline(), blk, spec}
+			p.portNames[name] = nsource(p.r.sourceline(), blk, spec)
 		case p.r.eat("block"):
 			name := p.r.name()
 			p.topblockspec(name)
@@ -140,7 +115,7 @@ func (p *parser) parseimpl() {
 		case p.r.eat("conn"):
 			name, spec := p.r.spec()
 			lineno := p.r.sourceline()
-			p.vlink = append(p.vlink, Link{&namedsink{lineno, name, spec}, p.parsesource()})
+			p.vlink = append(p.vlink, Link{nsink(lineno, name, spec), p.parsesource()})
 			p.r.endstatement()
 		default:
 			panic("unexpected")
@@ -149,7 +124,7 @@ func (p *parser) parseimpl() {
 }
 
 func (p *parser) topblockspec(name string) {
-	if _, ok := p.PortNames[name]; ok {
+	if _, ok := p.portNames[name]; ok {
 		panic("duplicate name")
 	}
 	if _, ok := p.sinkNames[name]; ok {
@@ -170,7 +145,7 @@ func (p *parser) topblockspec(name string) {
 	return
 }
 
-func (p *parser) parsesource() (input SpecSource) {
+func (p *parser) parsesource() (input specSource) {
 	p.r.skiplinespace()
 	switch {
 	case p.r.ch() == '[':
@@ -179,18 +154,17 @@ func (p *parser) parsesource() (input SpecSource) {
 			inpdisp:    inpdef_required,
 			mustoutput: []string{""},
 		})
-		blk := &Blk{Name: fmt.Sprintf("«%s:%d»", f.tname, lno), Type: f.typ, Param: f.param}
+		blk := p.newblk(lno, fmt.Sprintf("«%s:%d»", f.tname, lno), f.typ, f.param)
 		for i, n := range f.typ.InputNames() {
 			p.vlink = append(p.vlink, Link{&concreteblksink{lno, blk, n}, inputs[i]})
 		}
-		p.vblk = append(p.vblk, blk)
 		input = &concreteblksource{lno, blk, ""}
 	case isnumstart(p.r.ch()):
 		n := p.r.number()
 		input = &valueport{p.r.sourceline(), constport{&n}}
 	default:
 		n, s := p.r.spec()
-		input = &namedsource{p.r.sourceline(), n, s}
+		input = nsource(p.r.sourceline(), n, s)
 	}
 	return
 }
@@ -198,7 +172,7 @@ func (p *parser) parsesource() (input SpecSource) {
 func (p *parser) parseblock(name string) {
 	lno := p.r.sourceline()
 	f, inputs := p.parsefactory(&blkconstraint{})
-	blk := &Blk{Name: name, Type: f.typ, Param: f.param}
+	blk := p.newblk(lno, name, f.typ, f.param)
 	if len(inputs) == 0 {
 		p.sinkNames[name] = blk
 	} else {
@@ -213,7 +187,6 @@ func (p *parser) parsegroup(name string) {
 	if !p.r.eatch('{') {
 		panic("invalid group block spec")
 	}
-	// TODO
 	var names []string
 	for {
 		p.r.skipallspace()
@@ -222,7 +195,9 @@ func (p *parser) parsegroup(name string) {
 		}
 		names = append(names, p.r.name())
 	}
-	grp := &groupblkspec{lineno: p.r.sourceline(), sels: names}
+	// TODO
+	idx := 0
+	var last, first portMapper
 	for {
 		p.r.skipallspace()
 		if !isblkdefstart(p.r.ch()) {
@@ -231,20 +206,48 @@ func (p *parser) parsegroup(name string) {
 			}
 			panic("unclosed group")
 		}
-		var childconstr *blkconstraint
 		dollar := p.r.eatch('$')
+		lno := p.r.sourceline()
+		var cur portMapper
 		if dollar {
-			childconstr = haveinout("")
+			f, _ := p.parsefactory(haveinout(""))
+			m := make(map[string]*Blk)
+			for _, sel := range names {
+				blk := p.newblk(lno, fmt.Sprintf("%s#%d.%s", name, idx, sel), f.typ, f.param)
+				m[sel] = blk
+			}
+			cur = &dollarPortMapper{p.r.sourceline(), m}
 		} else {
-			childconstr = haveinout(names...)
+			f, _ := p.parsefactory(haveinout(names...))
+			blk := p.newblk(lno, fmt.Sprintf("%s#%d", name, idx), f.typ, f.param)
+			cur = blk
 		}
-		f, _ := p.parsefactory(childconstr)
-		child := grpchild{dollar, *f}
-		grp.v = append(grp.v, child)
+		if idx == 0 {
+			first = cur
+		} else {
+			for _, sel := range names {
+				eblk, esel, err := last.port(sel)
+				if err != nil {
+					panic(err) // impossible
+				}
+				kblk, ksel, err := cur.port(sel)
+				if err != nil {
+					panic(err) // impossible
+				}
+				p.vlink = append(p.vlink, Link{&concreteblksink{lno, kblk, ksel}, &concreteblksource{lno, eblk, esel}})
+			}
+		}
+		last = cur
+		idx++
 	}
+	if idx == 0 {
+		panic("group has no elements")
+	}
+	p.sinkNames[name] = first
+	p.sourceNames[name] = last
 }
 
-func (p *parser) parsefactory(constr *blkconstraint) (f *factory, inputs []SpecSource) {
+func (p *parser) parsefactory(constr *blkconstraint) (f *factory, inputs []specSource) {
 	p.r.skiplinespace()
 	if !p.r.eatch('[') {
 		panic("invalid factory block spec")
@@ -339,7 +342,17 @@ func (p *parser) parseparam() Param {
 		}
 		return param
 	}
-	return nil
+	return nil // not reached
+}
+
+func (p *parser) newblk(lno int, name string, typ Type, param Param) *Blk {
+	blk := &Blk{Name: name, Type: typ, Param: param}
+	if p.blklno == nil {
+		p.blklno = make(map[*Blk]int)
+	}
+	p.blklno[blk] = lno
+	p.vblk = append(p.vblk, blk)
+	return blk
 }
 
 func constint(v int) *constport   { return &constport{v} }
@@ -347,10 +360,13 @@ func constbool(b bool) *constport { return &constport{b} }
 
 func nice(d portdir, n string) string {
 	var dir string
-	if d == inport {
+	switch d {
+	case inport:
 		dir = "input"
-	} else {
+	case outport:
 		dir = "output"
+	default:
+		dir = "port"
 	}
 	if n == "" {
 		return "unnamed " + dir

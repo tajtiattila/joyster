@@ -1,48 +1,55 @@
 package parser
 
-import ()
+func newcontext(t TypeMap) *context {
+	return &context{
+		TypeMap:     t,
+		config:      make(map[string]float64),
+		sinkNames:   make(portMap),
+		sourceNames: make(portMap),
+		portNames: map[string]specSource{
+			"true":       constbool(true),
+			"on":         constbool(true),
+			"false":      constbool(false),
+			"off":        constbool(false),
+			"hat_off":    constint(hatC),
+			"hat_centre": constint(hatC),
+			"hat_center": constint(hatC),
+			"hat_north":  constint(hatN),
+			"hat_east":   constint(hatE),
+			"hat_south":  constint(hatS),
+			"hat_west":   constint(hatW),
+			"centre":     constint(hatC),
+			"center":     constint(hatC),
+			"north":      constint(hatN),
+			"east":       constint(hatE),
+			"south":      constint(hatS),
+			"west":       constint(hatW),
+		},
+	}
+}
 
-type Context struct {
+type context struct {
 	TypeMap
-	Config      map[string]float64
-	PortNames   map[string]SpecSource
-	sinkNames   map[string]*Blk
-	sourceNames map[string]*Blk
+	config      map[string]float64
+	portNames   map[string]specSource
+	sinkNames   portMap
+	sourceNames portMap
+	blklno      map[*Blk]int
 	vblk        []*Blk
 	vlink       []Link
 }
 
-func (c *Context) dependency(cons, prod *Blk) error {
-	// TODO
-	return nil
-}
-
-type BlkSpec interface {
-	String() string
-	SrcLine() int
-	OutputNames() []string
-	InBlk() *Blk
-	OutBlk() *Blk
-}
-
-// Type can tell what inputs and outputs its block has
-type Type interface {
-	InputNames() []string
-	OutputNames() []string
-	MustHaveInput() bool
-}
-
-// Namespace knows which named block types are available
-type TypeMap interface {
-	GetType(n string) (Type, error)
+type portMap map[string]portMapper
+type portMapper interface {
+	port(isel string) (blk *Blk, osel string, err error)
 }
 
 type Link struct {
-	sink   SpecSink
-	source SpecSource
+	sink   specSink
+	source specSource
 }
 
-func (l *Link) markdep(c *Context) error {
+func (l Link) markdep(c *context, f func(*Blk, *Blk)) error {
 	consumer, err := l.sink.Blk(c)
 	if err != nil {
 		return err
@@ -52,12 +59,12 @@ func (l *Link) markdep(c *Context) error {
 		return err
 	}
 	if consumer != nil && producer != nil {
-		return c.dependency(consumer, producer)
+		f(consumer, producer)
 	}
 	return nil
 }
 
-func (l *Link) setup(c *Context) error {
+func (l Link) setup(c *context) error {
 	src, err := l.source.Source(c)
 	if err != nil {
 		return err
@@ -65,12 +72,12 @@ func (l *Link) setup(c *Context) error {
 	return l.sink.SetTo(c, src)
 }
 
-type SpecSink interface {
-	Blk(c *Context) (*Blk, error)
-	SetTo(c *Context, src Source) error
+type specSink interface {
+	Blk(c *context) (*Blk, error)
+	SetTo(c *context, src Source) error
 }
 
-type SpecSource interface {
-	Blk(c *Context) (*Blk, error)
-	Source(c *Context) (Source, error)
+type specSource interface {
+	Blk(c *context) (*Blk, error)
+	Source(c *context) (Source, error)
 }

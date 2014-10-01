@@ -150,6 +150,11 @@ func TestParser(t *testing.T) {
 	if err := p.parse(testsrc); err != nil {
 		t.Error(err)
 	}
+	t.Log("parse ok")
+	ctx := p.context
+	if err := sort(ctx); err != nil {
+		t.Error(err)
+	}
 	//t.Logf("%#v", p)
 }
 

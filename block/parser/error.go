@@ -14,25 +14,43 @@ func errf(f string, v ...interface{}) error {
 }
 
 type sourceerror struct {
+	name   string
 	lineno int
 	err    error
 }
 
 func (e *sourceerror) Error() string {
-	return fmt.Sprintf("line %d: ", e.lineno) + e.err.Error()
-}
-
-func srcerr(s srcliner, i interface{}) error {
-	n := s.SrcLine()
-	switch x := i.(type) {
-	case *sourceerror:
-		return x
-	case error:
-		return &sourceerror{n, x}
+	name := e.name
+	if name != "" {
+		name = "{input}"
 	}
-	return &sourceerror{n, errors.New(fmt.Sprint(i))}
+	return fmt.Sprintf("%s:%d: ", name, e.lineno) + e.err.Error()
 }
 
-func srcerrf(s srcliner, f string, args ...interface{}) error {
+func setsrc(obj interface{}, name string) error {
+	if e, ok := obj.(*sourceerror); ok {
+		return &sourceerror{name, e.lineno, e.err}
+	}
+	return &sourceerror{name, -1, errors.New(fmt.Sprint(obj))}
+}
+
+func srcerr(obj interface{}, i interface{}) error {
+	switch s := obj.(type) {
+	case srcliner:
+		n := s.SrcLine()
+		switch x := i.(type) {
+		case *sourceerror:
+			return x
+		case error:
+			return &sourceerror{"", n, x}
+		}
+		return &sourceerror{"", n, errors.New(fmt.Sprint(i))}
+	case error:
+		return s
+	}
+	return errors.New(fmt.Sprint(i))
+}
+
+func srcerrf(s interface{}, f string, args ...interface{}) error {
 	return srcerr(s, fmt.Sprintf(f, args...))
 }
