@@ -74,16 +74,6 @@ func (p *parser) parse(src []byte) (err error) {
 		}
 	}()
 	p.parseimpl()
-
-	/*
-		for _, c := range p.Conns {
-			_, ok := p.Names[c.name]
-			if !ok {
-				return srcerrf(c, "conn target %s missing", c.name)
-			}
-		}
-	*/
-
 	return
 }
 

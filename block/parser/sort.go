@@ -1,7 +1,15 @@
 package parser
 
 func sort(ctx *context) error {
-	// first create set up links and create dependency map
+	// check parameters
+	for _, blk := range ctx.vblk {
+		if err := blk.Type.Validate(blk.Param, ctx.config); err != nil {
+			lno := ctx.blklno[blk]
+			return errf("block '%s' defined on line %d: %s", blk.Name, lno, err)
+		}
+	}
+
+	// create set up links and create dependency map
 	dm := make(map[*Blk]int)
 	rm := make(map[*Blk]map[*Blk]bool)
 	var err error

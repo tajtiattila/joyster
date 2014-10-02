@@ -9,7 +9,7 @@ var testsrc = []byte(`
 block input [gamepad: 0]
 block output [vjoy: 1]
 
-set update=1m tapdelay=200m keeppushed=250m
+set Update=1m TapDelay=200m KeepPushed=250m
 
 # axes
 
@@ -190,12 +190,25 @@ func newtestnamespace() *testnamespace {
 	m.add(kind(si("1"), si("2"), so("")),
 		"add", "sub", "mul", "div", "mod", "pow", "min", "max", "absmin", "absmax")
 	m.add(kind(si("1"), si("2"), bo("")), "eq", "ne", "lt", "gt", "le", "ge")
-	m.add(kind(bi(""), bo(""), bo("1"), bo("2")), "multibutton")
-	m.add(kind(si(""), so("")),
-		"offset", "deadzone", "multiply", "curvature", "truncate", "dampen", "smooth", "incremental")
-	m.add(kind(si("x"), si("y"), so("x"), so("y")), "stick", "circlesquare", "circulardeadzone")
-	m.add(kind(si("left"), si("right"), so(""), bo("break")), "triggeraxis")
-	m.add(kind(si("x"), si("y"), bi("enable"), so("x"), so("y")), "headlook")
+	m.add(kind(bi(""), bo(""), bo("1"), bo("2")).arg("NumTaps", "TapDelay", "KeepPushed"), "multibutton")
+
+	m.add(kind(si(""), so("")).arg("Value"), "offset")
+	m.add(kind(si(""), so("")).arg("Threshold"), "deadzone")
+	m.add(kind(si(""), so("")).arg("Factor"), "multiply")
+	m.add(kind(si(""), so("")).arg("Factor"), "curvature")
+	m.add(kind(si(""), so("")).arg("Value"), "truncate")
+	m.add(kind(si(""), so("")).arg("Value"), "dampen")
+	m.add(kind(si(""), so("")).arg("Time"), "smooth")
+	m.add(kind(si(""), so("")).arg("Speed").optarg("Rebound", "QuickCenter"), "incremental")
+
+	m.add(kind(si("x"), si("y"), so("x"), so("y")), "stick")
+	m.add(kind(si("x"), si("y"), so("x"), so("y")).arg("Factor"), "circlesquare")
+	m.add(kind(si("x"), si("y"), so("x"), so("y")).arg("Threshold"), "circulardeadzone")
+
+	m.add(kind(si("left"), si("right"), so(""), bo("break")).
+		arg("AxisThreshold", "BreakThreshold", "Exp"), "triggeraxis")
+	m.add(kind(si("x"), si("y"), bi("enable"), so("x"), so("y")).
+		arg("MovePerSec", "AutoCenterDist", "AutoCenterAccel", "JumpToCenterAccel"), "headlook")
 
 	var vk []testio
 	for _, n := range []string{"x", "y", "z", "rx", "ry", "rz", "u", "v"} {
@@ -207,7 +220,7 @@ func newtestnamespace() *testnamespace {
 	for i := 1; i <= 4; i++ {
 		vk = append(vk, hi(fmt.Sprint("hat", i)))
 	}
-	m.add(kind(vk...).inopt(), "vjoy")
+	m.add(kind(vk...).inopt().arg("device"), "vjoy")
 
 	gk := []testio{ho("dpad")}
 	for _, n := range []string{"lx", "ly", "rx", "ry", "lt", "rt"} {
@@ -218,7 +231,7 @@ func newtestnamespace() *testnamespace {
 		"lbumper", "rbumper", "lthumb", "rthumb", "back", "start"} {
 		gk = append(gk, bo(n))
 	}
-	m.add(kind(gk...), "gamepad")
+	m.add(kind(gk...).arg("device"), "gamepad")
 	return m
 }
 
@@ -226,6 +239,7 @@ type testblkkind struct {
 	inames   PortMap
 	onames   PortMap
 	optinput bool
+	args     []karg
 }
 
 func kind(vio ...testio) *testblkkind {
@@ -244,11 +258,42 @@ func (k *testblkkind) Input() PortMap         { return k.inames }
 func (k *testblkkind) Output(PortMap) PortMap { return k.onames }
 func (k *testblkkind) MustHaveInput() bool    { return !k.optinput }
 
+func (k *testblkkind) Validate(p Param, c NamedParam) error {
+	pr := p.Reader(c)
+	for _, a := range k.args {
+		if a.opt {
+			pr.OptArg(a.name, 0)
+		} else {
+			pr.Arg(a.name)
+		}
+	}
+	return pr.Err()
+}
+
 func (k *testblkkind) inopt() *testblkkind {
 	nk := new(testblkkind)
 	*nk = *k
 	nk.optinput = true
 	return nk
+}
+
+func (k *testblkkind) arg(v ...string) *testblkkind    { return k.xargs(false, v...) }
+func (k *testblkkind) optarg(v ...string) *testblkkind { return k.xargs(true, v...) }
+
+func (k *testblkkind) xargs(opt bool, v ...string) *testblkkind {
+	nk := new(testblkkind)
+	*nk = *k
+	nk.args = make([]karg, len(k.args))
+	copy(nk.args, k.args)
+	for _, n := range v {
+		nk.args = append(nk.args, karg{n, opt})
+	}
+	return nk
+}
+
+type karg struct {
+	name string
+	opt  bool
 }
 
 type ifblkkind struct {
@@ -264,6 +309,9 @@ func (k *ifblkkind) Output(im PortMap) PortMap {
 		return PortMap{Port{"", th}}
 	}
 	return PortMap{Port{"", Invalid}}
+}
+
+type testsig struct {
 }
 
 type testio struct {

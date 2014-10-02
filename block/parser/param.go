@@ -73,7 +73,9 @@ type namedpr struct {
 	firsterr error
 }
 
-func newnamedpr(p, globals NamedParam) ParamReader { return &namedpr{m: p, globals: globals} }
+func newnamedpr(p, globals NamedParam) ParamReader {
+	return &namedpr{m: p, globals: globals, used: make(map[string]bool)}
+}
 
 func (p *namedpr) Arg(n string) float64 {
 	v, ok := p.val(n, 0)
