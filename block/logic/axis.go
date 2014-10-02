@@ -8,7 +8,7 @@ import (
 func init() {
 	// add value to input
 	block.RegisterScalarFunc("offset", func(p block.Param) (func(float64) float64, error) {
-		ofs := p.Arg("value")
+		ofs := p.Arg("Value")
 		return func(v float64) float64 {
 			return v + ofs
 		}, nil
@@ -16,7 +16,7 @@ func init() {
 
 	// zero input under abs. value, reduce bigger
 	block.RegisterScalarFunc("deadzone", func(p block.Param) (func(float64) float64, error) {
-		dz := p.Arg("treshold")
+		dz := p.Arg("Threshold")
 		return func(v float64) float64 {
 			var s float64
 			if v < 0 {
@@ -34,7 +34,7 @@ func init() {
 
 	// multiply input by factor
 	block.RegisterScalarFunc("multiply", func(p block.Param) (func(float64) float64, error) {
-		f := p.Arg("factor")
+		f := p.Arg("Factor")
 		return func(v float64) float64 {
 			return v * f
 		}, nil
@@ -42,7 +42,7 @@ func init() {
 
 	// axis sensitivivy curve (factor: 0 - linear, positive: nonlinear)
 	block.RegisterScalarFunc("curvature", func(p block.Param) (func(float64) float64, error) {
-		pow := math.Pow(2, p.Arg("factor"))
+		pow := math.Pow(2, p.Arg("Factor"))
 		return func(v float64) float64 {
 			s := float64(1)
 			if v < 0 {
@@ -54,7 +54,7 @@ func init() {
 
 	// truncate input above abs. value
 	block.RegisterScalarFunc("truncate", func(p block.Param) (func(float64) float64, error) {
-		t := p.Arg("value")
+		t := p.Arg("Value")
 		return func(v float64) float64 {
 			switch {
 			case v < -t:
@@ -68,7 +68,7 @@ func init() {
 
 	// set maximum input change to value/second
 	block.RegisterScalarFunc("dampen", func(p block.Param) (func(float64) float64, error) {
-		value := p.Arg("value")
+		value := p.Arg("Value")
 		if value < 1e-6 {
 			return func(v float64) float64 {
 				return v
@@ -91,7 +91,7 @@ func init() {
 
 	// smooth inputs over time (seconds)
 	block.RegisterScalarFunc("smooth", func(p block.Param) (func(float64) float64, error) {
-		nsamples := math.Floor(p.Arg("time") * p.TickFreq())
+		nsamples := math.Floor(p.Arg("Time") * p.TickFreq())
 		if nsamples < 2 {
 			return func(v float64) float64 {
 				return v
@@ -116,9 +116,9 @@ func init() {
 
 	// use input as delta, change values by speed/second
 	block.RegisterScalarFunc("incremental", func(p block.Param) (func(float64) float64, error) {
-		speed := p.Arg("speed")
-		rebound := p.OptArg("rebound", 0)
-		quickcenter := 0 != p.OptArg("quickcenter", 0)
+		speed := p.Arg("Speed")
+		rebound := p.OptArg("Rebound", 0)
+		quickcenter := 0 != p.OptArg("QuickCenter", 0)
 
 		speed *= p.TickTime()
 		rebound *= p.TickTime()

@@ -15,9 +15,9 @@ func init() {
 // a double tap does not result in the single tap output firing
 func newMultiButton(p block.Param) block.Block {
 	b := new(multiButton)
-	nmaxtaps := int(p.Arg("numtaps"))
-	b.taptick = uint(p.Arg("tapdelay") * p.TickFreq())
-	b.pushlen = uint(p.Arg("keeppushed") * p.TickFreq())
+	nmaxtaps := int(p.Arg("NumTaps"))
+	b.taptick = uint(p.Arg("TapDelay") * p.TickFreq())
+	b.pushlen = uint(p.Arg("KeepPushed") * p.TickFreq())
 	b.v = make([]*tapMultiOut, nmaxtaps)
 	for i := range b.v {
 		b.v[i] = new(tapMultiOut)

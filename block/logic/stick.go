@@ -9,7 +9,7 @@ import (
 func init() {
 	// zero positions inside the circle, move outside closer to center
 	block.RegisterStickFunc("circulardeadzone", func(p block.Param) (block.StickFunc, error) {
-		value := p.Arg("threshold")
+		value := p.Arg("Threshold")
 		value2 := value * value
 		return func(xi, yi float64) (xo, yo float64) {
 			mag2 := xi*xi + yi*yi
@@ -25,7 +25,7 @@ func init() {
 
 	// the circular positions into positions on the square (0 < factor < 1)
 	block.RegisterStickFunc("circlesquare", func(p block.Param) (block.StickFunc, error) {
-		factor := p.OptArg("factor", 1)
+		factor := p.OptArg("Factor", 1)
 		if factor < 0 || 1 < factor {
 			return nil, fmt.Errorf("circlesquare factor should be between 0 and 1, not %f", factor)
 		}
