@@ -154,6 +154,7 @@ func (r *sourcereader) digits() (n, d int64) {
 			break
 		}
 		n = n*10 + int64(run-'0')
+		d *= 10
 		r.pos += siz
 	}
 	return
