@@ -138,6 +138,18 @@ func (inp *ifinput) Set(sel string, port Port) error {
 	return nil
 }
 
+func (inp *ifinput) Type(sel string) PortType {
+	switch sel {
+	case "cond":
+		return Bool
+	case "then":
+		return Any
+	case "else":
+		return Any
+	}
+	panic(fmt.Sprint("if block has no input named '%s'", sel))
+}
+
 func matchport(a, b Port) bool {
 	var match bool
 	switch a.(type) {

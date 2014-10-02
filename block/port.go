@@ -3,6 +3,7 @@ package block
 import (
 	"errors"
 	"fmt"
+	"github.com/tajtiattila/joyster/block/parser"
 )
 
 // hat values are bitmasks
@@ -18,8 +19,65 @@ const (
 	HatMax  = 16
 )
 
-type InputMap interface {
+type PortType parser.PortType
+
+const (
+	Invalid = PortType(parser.Invalid)
+	Bool    = PortType(parser.Bool)
+	Float64 = PortType(parser.Scalar)
+	Int     = PortType(parser.Hat)
+	Any     = PortType(parser.Any)
+)
+
+func TypeOf(port Port) PortType {
+	switch port.(type) {
+	case *bool:
+		return Bool
+	case *float64:
+		return Float64
+	case *int:
+		return Int
+	}
+	return Invalid
+}
+
+func PtrTypeOf(pport interface{}) PortType {
+	switch pport.(type) {
+	case **bool:
+		return Bool
+	case **float64:
+		return Float64
+	case **int:
+		return Int
+	}
+	return Invalid
+}
+
+// ZeroValue creates a zero value for a port type. Only concrete
+// types are supported, for Invalid and Any it panics.
+func ZeroValue(t PortType) Port {
+	switch t {
+	case Bool:
+		return boolPortVal
+	case Float64:
+		return scalarPortVal
+	case Int:
+		return hatPortVal
+	}
+	panic("invalid input for ZeroValue")
+}
+
+type PortTypeMap map[string]PortType
+
+// TypeInputMap specifies order of inputs and their types
+// for a Block Type. It is an error to call Type() with sel not in Names().
+type TypeInputMap interface {
 	Names() []string
+	Type(sel string) PortType
+}
+
+type InputMap interface {
+	TypeInputMap
 	Set(sel string, port Port) error
 }
 
@@ -136,3 +194,9 @@ func Connect(i interface{}, port Port) error {
 	}
 	return nil
 }
+
+var (
+	boolPortVal   = new(bool)
+	scalarPortVal = new(float64)
+	hatPortVal    = new(int)
+)

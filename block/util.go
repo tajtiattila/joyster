@@ -54,6 +54,14 @@ func (m *mapInput) Set(sel string, port Port) error {
 	return nil
 }
 
+func (m *mapInput) Type(sel string) PortType {
+	p, ok := m.m[sel]
+	if !ok {
+		return Invalid
+	}
+	return PtrTypeOf(p)
+}
+
 type mapOutput struct {
 	title string
 	m     map[string]interface{}
@@ -109,4 +117,11 @@ func (i *singleInput) Set(sel string, port Port) error {
 		return fmt.Errorf("cant connect '%s' unnamed port: %s", i.title, err.Error())
 	}
 	return nil
+}
+
+func (i *singleInput) Type(sel string) PortType {
+	if sel != "" {
+		return Invalid
+	}
+	return PtrTypeOf(i.ii)
 }

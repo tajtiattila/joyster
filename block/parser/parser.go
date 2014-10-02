@@ -251,7 +251,7 @@ func (p *parser) parsefactory(constr *blkconstraint) (f *factory, inputs []specS
 	}
 	if len(constr.mustoutput) != 0 {
 		for _, n := range constr.mustoutput {
-			if f.typ.Output(nil).Port(n) == Invalid {
+			if f.typ.Output(f.typ.Input()).Port(n) == Invalid {
 				panic(errf("type '%s' does not have required %s",
 					f.tname, nice(outport, n)))
 			}

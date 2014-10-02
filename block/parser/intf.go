@@ -172,10 +172,10 @@ func (s *ValueSource) Type() PortType {
 // Blocks must normally have all their inputs connected, except if MustHaveInput of their Type
 // returns false.
 type Type interface {
-	Input() PortMap               // inputs needed for Blks of this Type
-	Output(input PortMap) PortMap // outputs provided by Blks of this Type for given input
-	MustHaveInput() bool          // tells wether all inputs must be set for this type
-	Validate(p Param, globals NamedParam) error
+	Input() PortMap                          // inputs needed for Blks of this Type
+	Output(input PortMap) PortMap            // outputs provided by Blks of this Type for given input
+	MustHaveInput() bool                     // tells wether all inputs must be set for this type
+	Param(p Param, globals NamedParam) error // validate input parameters
 }
 
 // Namespace knows the types available for a Profile.

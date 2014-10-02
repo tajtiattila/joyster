@@ -258,7 +258,7 @@ func (k *testblkkind) Input() PortMap         { return k.inames }
 func (k *testblkkind) Output(PortMap) PortMap { return k.onames }
 func (k *testblkkind) MustHaveInput() bool    { return !k.optinput }
 
-func (k *testblkkind) Validate(p Param, c NamedParam) error {
+func (k *testblkkind) Param(p Param, c NamedParam) error {
 	pr := p.Reader(c)
 	for _, a := range k.args {
 		if a.opt {
