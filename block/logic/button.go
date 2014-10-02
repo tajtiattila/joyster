@@ -72,9 +72,8 @@ func (b *multiButton) Tick() {
 	if b.tapc != 0 {
 		b.tapc--
 		if b.tapc == 0 {
-			idx := b.ntap - 1
-			if idx < len(b.v) {
-				t := b.v[idx]
+			if b.ntap < len(b.v) {
+				t := b.v[b.ntap]
 				if !t.o {
 					b.ntapon++
 					t.o = true
