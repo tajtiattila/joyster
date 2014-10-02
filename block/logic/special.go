@@ -126,7 +126,7 @@ func newTriggerAxis(p block.Param) block.Block {
 	at := p.Arg("AxisThreshold")
 	bt := p.Arg("BreakThreshold")
 	exp := p.Arg("Exp")
-	m := 1 - at
+	m := 1 / (1 - at)
 	return &triggeraxis{
 		axisThreshold:  at,
 		breakThreshold: bt,
@@ -165,7 +165,7 @@ func (t *triggeraxis) Tick() {
 
 func (t *triggeraxis) triggervalue(v float64) float64 {
 	vv := v - t.axisThreshold
-	if v <= 0 {
+	if vv <= 0 {
 		return 0
 	}
 	return math.Pow(vv*t.m, t.exp)
