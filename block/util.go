@@ -4,27 +4,38 @@ import (
 	"fmt"
 )
 
-func MapInput(t string, m map[string]interface{}) InputMap {
-	for _, p := range m {
-		switch p.(type) {
+func MapInput(t string, v ...MapDecl) InputMap {
+	n, m := make([]string, 0, len(v)), make(map[string]interface{})
+	for _, p := range v {
+		switch p.V.(type) {
 		case **bool, **float64, **int:
 		default:
 			panic("invalid type in MapInput")
 		}
+		n, m[p.N] = append(n, p.N), p.V
 	}
-	return &mapInput{t, m}
+	return &mapInput{t, n, m}
 }
 
-func MapOutput(t string, m map[string]interface{}) OutputMap {
-	for _, p := range m {
-		switch p.(type) {
+func MapOutput(t string, v ...MapDecl) OutputMap {
+	n, m := make([]string, 0, len(v)), make(map[string]interface{})
+	for _, p := range v {
+		switch p.V.(type) {
 		case *bool, *float64, *int:
 		default:
 			panic("invalid type in MapOutput")
 		}
+		n, m[p.N] = append(n, p.N), p.V
 	}
-	return &mapOutput{t, m}
+	return &mapOutput{t, n, m}
 }
+
+type MapDecl struct {
+	N string
+	V interface{}
+}
+
+func pt(n string, v interface{}) MapDecl { return MapDecl{n, v} }
 
 func SingleOutput(t string, p Port) OutputMap { return &singleOutput{t, p} }
 
@@ -32,15 +43,19 @@ func SingleInput(t string, i interface{}) InputMap { return &singleInput{t, i} }
 
 type mapInput struct {
 	title string
-	m     map[string]interface{}
+
+	v []string
+	m map[string]interface{}
 }
 
-func (m *mapInput) Names() []string {
-	v := make([]string, 0, len(m.m))
-	for n := range m.m {
-		v = append(v, n)
+func (m *mapInput) Names() []string { return m.v }
+
+func (m *mapInput) Value(sel string) interface{} {
+	p, ok := m.m[sel]
+	if !ok {
+		return nil
 	}
-	return v
+	return pval(p)
 }
 
 func (m *mapInput) Set(sel string, port Port) error {
@@ -64,15 +79,18 @@ func (m *mapInput) Type(sel string) PortType {
 
 type mapOutput struct {
 	title string
+	v     []string
 	m     map[string]interface{}
 }
 
-func (m *mapOutput) Names() []string {
-	v := make([]string, 0, len(m.m))
-	for n := range m.m {
-		v = append(v, n)
+func (m *mapOutput) Names() []string { return m.v }
+
+func (m *mapOutput) Value(sel string) interface{} {
+	p, ok := m.m[sel]
+	if !ok {
+		return nil
 	}
-	return v
+	return pval(p)
 }
 
 func (m *mapOutput) Get(sel string) (Port, error) {
@@ -91,6 +109,12 @@ type singleOutput struct {
 }
 
 func (o *singleOutput) Names() []string { return []string{""} }
+func (o *singleOutput) Value(sel string) interface{} {
+	if sel == "" {
+		return pval(o.p)
+	}
+	return nil
+}
 
 func (o *singleOutput) Get(sel string) (Port, error) {
 	if sel != "" {
@@ -108,6 +132,12 @@ type singleInput struct {
 }
 
 func (i *singleInput) Names() []string { return []string{""} }
+func (i *singleInput) Value(sel string) interface{} {
+	if sel == "" {
+		return pval(i.ii)
+	}
+	return nil
+}
 
 func (i *singleInput) Set(sel string, port Port) error {
 	if sel != "" {
@@ -124,4 +154,22 @@ func (i *singleInput) Type(sel string) PortType {
 		return Invalid
 	}
 	return PtrTypeOf(i.ii)
+}
+
+func pval(port interface{}) interface{} {
+	switch p := port.(type) {
+	case *bool:
+		return *p
+	case *float64:
+		return *p
+	case *int:
+		return *p
+	case **bool:
+		return **p
+	case **float64:
+		return **p
+	case **int:
+		return **p
+	}
+	return nil
 }

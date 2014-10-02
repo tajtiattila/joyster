@@ -51,11 +51,12 @@ type tapMultiOut struct {
 
 func (b *multiButton) Input() block.InputMap { return block.SingleInput("multibutton", &b.i) }
 func (b *multiButton) Output() block.OutputMap {
-	m := map[string]interface{}{"": &b.o}
+	d := make([]block.MapDecl, len(b.v)+1)
+	d[0] = pt("", &b.o)
 	for i, t := range b.v {
-		m[fmt.Sprint(i+1)] = &t.o
+		d[i+1] = pt(fmt.Sprint(i+1), &t.o)
 	}
-	return block.MapOutput("multibutton", m)
+	return block.MapOutput("multibutton", d...)
 }
 func (b *multiButton) Validate() error { return block.CheckInputs("multibutton", &b.i) }
 
@@ -97,3 +98,5 @@ func (b *multiButton) Tick() {
 	}
 	b.o = b.ntapon == 0 && *b.i
 }
+
+func pt(n string, v interface{}) block.MapDecl { return block.MapDecl{n, v} }

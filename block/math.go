@@ -40,9 +40,7 @@ type mathopblk struct {
 	tick   func(a, b float64) float64
 }
 
-func (b *mathopblk) Tick() { b.o = b.tick(*b.i1, *b.i2) }
-func (b *mathopblk) Input() InputMap {
-	return MapInput(b.typ, map[string]interface{}{"1": &b.i1, "2": &b.i2})
-}
+func (b *mathopblk) Tick()             { b.o = b.tick(*b.i1, *b.i2) }
+func (b *mathopblk) Input() InputMap   { return MapInput(b.typ, pt("1", &b.i1), pt("2", &b.i2)) }
 func (b *mathopblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
 func (b *mathopblk) Validate() error   { return CheckInputs(b.typ, &b.i1, &b.i2) }

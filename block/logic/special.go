@@ -43,18 +43,18 @@ func newHeadlook(p block.Param) *viewaccumulatelogic {
 }
 
 func (l *viewaccumulatelogic) Input() block.InputMap {
-	return block.MapInput("headlook", map[string]interface{}{
-		"enable": &l.enable,
-		"x":      &l.xi,
-		"y":      &l.yi,
-	})
+	return block.MapInput("headlook",
+		pt("enable", &l.enable),
+		pt("x", &l.xi),
+		pt("y", &l.yi),
+	)
 }
 
 func (l *viewaccumulatelogic) Output() block.OutputMap {
-	return block.MapOutput("headlook", map[string]interface{}{
-		"x": &l.x,
-		"y": &l.y,
-	})
+	return block.MapOutput("headlook",
+		pt("x", &l.x),
+		pt("y", &l.y),
+	)
 }
 
 func (l *viewaccumulatelogic) Validate() error {
@@ -136,17 +136,17 @@ func newTriggerAxis(p block.Param) block.Block {
 }
 
 func (t *triggeraxis) Input() block.InputMap {
-	return block.MapInput("triggeraxis", map[string]interface{}{
-		"left":  &t.left,
-		"right": &t.right,
-	})
+	return block.MapInput("triggeraxis",
+		pt("left", &t.left),
+		pt("right", &t.right),
+	)
 }
 
 func (t *triggeraxis) Output() block.OutputMap {
-	return block.MapOutput("triggeraxis", map[string]interface{}{
-		"":      &t.pos,
-		"break": &t.brk,
-	})
+	return block.MapOutput("triggeraxis",
+		pt("", &t.pos),
+		pt("break", &t.brk),
+	)
 }
 
 func (t *triggeraxis) Validate() error { return block.CheckInputs("triggeraxis", &t.left, &t.right) }

@@ -10,6 +10,7 @@ type Profile struct {
 	D       time.Duration
 	Blocks  []Block
 	Tickers []Ticker
+	Names   map[Block]string
 }
 
 func Parse(src string) (*Profile, error) {
@@ -69,6 +70,7 @@ func instantiate(pprof *parser.Profile, tm TypeMap) (p *Profile, err error) {
 			p.Close()
 		}
 	}()
+	p.Names = make(map[Block]string)
 	mblk := make(map[*parser.Blk]Block)
 	for _, pb := range pprof.Blocks {
 		ptyp, ok := pb.Type.(*parserType)
@@ -108,6 +110,7 @@ func instantiate(pprof *parser.Profile, tm TypeMap) (p *Profile, err error) {
 			return nil, fmt.Errorf("loaded block '%s' invalid: %v", pb.Name, err)
 		}
 		p.Blocks = append(p.Blocks, blk)
+		p.Names[blk] = pb.Name
 		if t, ok := blk.(Ticker); ok {
 			p.Tickers = append(p.Tickers, t)
 		}

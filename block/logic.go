@@ -39,9 +39,7 @@ func (b *logicopblk) Tick() {
 	b.o = b.tick(*b.i1, *b.i2)
 }
 
-func (b *logicopblk) Input() InputMap {
-	return MapInput(b.typ, map[string]interface{}{"1": &b.i1, "2": &b.i2})
-}
+func (b *logicopblk) Input() InputMap   { return MapInput(b.typ, pt("1", &b.i1), pt("2", &b.i2)) }
 func (b *logicopblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
 func (b *logicopblk) Validate() error   { return CheckInputs("not", &b.i1, &b.i2) }
 
@@ -97,6 +95,18 @@ func (inp *ifinput) Type(sel string) PortType {
 		return Any
 	}
 	panic(fmt.Sprint("if block has no input named '%s'", sel))
+}
+
+func (inp *ifinput) Value(sel string) interface{} {
+	switch sel {
+	case "cond":
+		return *inp.b.cond
+	case "then":
+		return pval(inp.b.valthen)
+	case "else":
+		return pval(inp.b.valelse)
+	}
+	return nil
 }
 
 func (inp *ifinput) Set(sel string, port Port) error {

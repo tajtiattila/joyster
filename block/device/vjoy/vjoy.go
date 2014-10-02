@@ -20,7 +20,7 @@ var axes = []string{"x", "y", "z", "rx", "ry", "rz", "u", "v"}
 type vjoyblk struct {
 	dev *vj.Device
 
-	axes    map[string]*axis
+	axes    []*axis
 	buttons []*btn
 	hats    []*hat
 }
@@ -45,17 +45,19 @@ func newVjoyBlock(idev uint) (block.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	blk := &vjoyblk{dev: d, axes: make(map[string]*axis)}
+	blk := &vjoyblk{dev: d}
 
 	zero := new(float64)
-	blk.axes["x"] = &axis{zero, d.Axis(vj.AxisX)}
-	blk.axes["y"] = &axis{zero, d.Axis(vj.AxisY)}
-	blk.axes["z"] = &axis{zero, d.Axis(vj.AxisZ)}
-	blk.axes["rx"] = &axis{zero, d.Axis(vj.AxisRX)}
-	blk.axes["ry"] = &axis{zero, d.Axis(vj.AxisRY)}
-	blk.axes["rz"] = &axis{zero, d.Axis(vj.AxisRZ)}
-	blk.axes["u"] = &axis{zero, d.Axis(vj.Slider0)}
-	blk.axes["v"] = &axis{zero, d.Axis(vj.Slider1)}
+	blk.axes = []*axis{
+		{zero, d.Axis(vj.AxisX)},
+		{zero, d.Axis(vj.AxisY)},
+		{zero, d.Axis(vj.AxisZ)},
+		{zero, d.Axis(vj.AxisRX)},
+		{zero, d.Axis(vj.AxisRY)},
+		{zero, d.Axis(vj.AxisRZ)},
+		{zero, d.Axis(vj.Slider0)},
+		{zero, d.Axis(vj.Slider1)},
+	}
 
 	off := new(bool)
 	for i := 0; i < 32; i++ {
@@ -71,17 +73,17 @@ func newVjoyBlock(idev uint) (block.Block, error) {
 }
 
 func (v *vjoyblk) Input() block.InputMap {
-	m := make(map[string]interface{})
-	for n, a := range v.axes {
-		m[n] = &(a.v)
+	var decl []block.MapDecl
+	for i, a := range v.axes {
+		decl = append(decl, pt(axes[i], &a.v))
 	}
 	for i, h := range v.hats {
-		m[fmt.Sprint("hat", i+1)] = &(h.v)
+		decl = append(decl, pt(fmt.Sprint("hat", i+1), &h.v))
 	}
 	for i, b := range v.buttons {
-		m[fmt.Sprint(i+1)] = &(b.v)
+		decl = append(decl, pt(fmt.Sprint(i+1), &b.v))
 	}
-	return block.MapInput("vjoy", m)
+	return block.MapInput("vjoy", decl...)
 }
 
 func (v *vjoyblk) Output() block.OutputMap { return nil }
@@ -109,20 +111,18 @@ type vjoyproto struct{}
 func (v *vjoyproto) Output() block.OutputMap { return nil }
 func (v *vjoyproto) Validate() error         { return nil }
 func (v *vjoyproto) Input() block.InputMap {
-	m := make(map[string]interface{})
-	fp := new(float64)
+	fp, hp, bp := new(float64), new(int), new(bool)
+	var decl []block.MapDecl
 	for _, n := range axes {
-		m[n] = &fp
+		decl = append(decl, pt(n, &fp))
 	}
-	hp := new(int)
 	for i := 0; i < 4; i++ {
-		m[fmt.Sprint("hat", i+1)] = &hp
+		decl = append(decl, pt(fmt.Sprint("hat", i+1), &hp))
 	}
-	bp := new(bool)
 	for i := 0; i < 32; i++ {
-		m[fmt.Sprint(i+1)] = &bp
+		decl = append(decl, pt(fmt.Sprint(i+1), &bp))
 	}
-	return block.MapInput("vjoyproto", m)
+	return block.MapInput("vjoyproto", decl...)
 }
 
 var hatmap []vj.HatState
@@ -146,3 +146,5 @@ func init() {
 		hatmap[i] = hs
 	}
 }
+
+func pt(n string, v interface{}) block.MapDecl { return block.MapDecl{n, v} }

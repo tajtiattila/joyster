@@ -32,27 +32,27 @@ func (p *gamepad) Input() block.InputMap { return nil }
 func (p *gamepad) Validate() error       { return nil }
 
 func (p *gamepad) Output() block.OutputMap {
-	return block.MapOutput("gamepad", map[string]interface{}{
-		"buttona":  &p.a,
-		"buttonb":  &p.b,
-		"buttonx":  &p.x,
-		"buttony":  &p.y,
-		"start":    &p.start,
-		"back":     &p.back,
-		"ltrigger": &p.ltrigger,
-		"rtrigger": &p.rtrigger,
-		"lbumper":  &p.lbumper,
-		"rbumper":  &p.rbumper,
-		"lthumb":   &p.lthumb,
-		"rthumb":   &p.rthumb,
-		"lx":       &p.lx,
-		"ly":       &p.ly,
-		"rx":       &p.rx,
-		"ry":       &p.ry,
-		"lt":       &p.lt,
-		"rt":       &p.rt,
-		"dpad":     &p.dpad,
-	})
+	return block.MapOutput("gamepad",
+		pt("buttona", &p.a),
+		pt("buttonb", &p.b),
+		pt("buttonx", &p.x),
+		pt("buttony", &p.y),
+		pt("start", &p.start),
+		pt("back", &p.back),
+		pt("ltrigger", &p.ltrigger),
+		pt("rtrigger", &p.rtrigger),
+		pt("lbumper", &p.lbumper),
+		pt("rbumper", &p.rbumper),
+		pt("lthumb", &p.lthumb),
+		pt("rthumb", &p.rthumb),
+		pt("lx", &p.lx),
+		pt("ly", &p.ly),
+		pt("rx", &p.rx),
+		pt("ry", &p.ry),
+		pt("lt", &p.lt),
+		pt("rt", &p.rt),
+		pt("dpad", &p.dpad),
+	)
 }
 
 func (p *gamepad) Tick() {
@@ -105,6 +105,8 @@ func int16scalar(v int16) float64 {
 	}
 	return 0 // not reached
 }
+
+func pt(n string, v interface{}) block.MapDecl { return block.MapDecl{n, v} }
 
 var dpadmap []int
 

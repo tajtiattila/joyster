@@ -69,10 +69,15 @@ func ZeroValue(t PortType) Port {
 
 type PortTypeMap map[string]PortType
 
+type IO interface {
+	Names() []string
+	Value(sel string) interface{}
+}
+
 // TypeInputMap specifies order of inputs and their types
 // for a Block Type. It is an error to call Type() with sel not in Names().
 type TypeInputMap interface {
-	Names() []string
+	IO
 	Type(sel string) PortType
 }
 
@@ -82,7 +87,7 @@ type InputMap interface {
 }
 
 type OutputMap interface {
-	Names() []string
+	IO
 	Get(sel string) (Port, error)
 }
 

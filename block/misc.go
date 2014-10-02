@@ -79,18 +79,10 @@ type stickfuncblk struct {
 	f      func(xi, yi float64) (xo, yo float64)
 }
 
-func (b *stickfuncblk) Input() InputMap {
-	return MapInput(b.typ, map[string]interface{}{"x": &b.xi, "y": &b.yi})
-}
-
-func (b *stickfuncblk) Output() OutputMap {
-	return MapOutput(b.typ, map[string]interface{}{"x": &b.xo, "y": &b.yo})
-}
-
-func (b *stickfuncblk) Validate() error {
-	return CheckInputs(b.typ, &b.xi, &b.yi)
-}
-func (b *stickfuncblk) Tick() { b.xo, b.yo = b.f(*b.xi, *b.yi) }
+func (b *stickfuncblk) Input() InputMap   { return MapInput(b.typ, pt("x", &b.xi), pt("y", &b.yi)) }
+func (b *stickfuncblk) Output() OutputMap { return MapOutput(b.typ, pt("x", &b.xo), pt("y", &b.yo)) }
+func (b *stickfuncblk) Validate() error   { return CheckInputs(b.typ, &b.xi, &b.yi) }
+func (b *stickfuncblk) Tick()             { b.xo, b.yo = b.f(*b.xi, *b.yi) }
 
 func init() {
 	Register("stick", func() Block { return new(stickblk) })
@@ -100,12 +92,6 @@ type stickblk struct {
 	x, y *float64
 }
 
-func (b *stickblk) Input() InputMap {
-	return MapInput("stick", map[string]interface{}{"x": &b.x, "y": &b.y})
-}
-
-func (b *stickblk) Output() OutputMap {
-	return MapOutput("stick", map[string]interface{}{"x": b.x, "y": b.y})
-}
-
-func (b *stickblk) Validate() error { return CheckInputs("stick", &b.x, &b.y) }
+func (b *stickblk) Input() InputMap   { return MapInput("stick", pt("x", &b.x), pt("y", &b.y)) }
+func (b *stickblk) Output() OutputMap { return MapOutput("stick", pt("x", b.x), pt("y", b.y)) }
+func (b *stickblk) Validate() error   { return CheckInputs("stick", &b.x, &b.y) }
