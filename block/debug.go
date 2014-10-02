@@ -57,7 +57,7 @@ func fmtio(w io.Writer, bio IO) {
 					s = "·"
 				}
 			case float64:
-				s = fmt.Sprintf("% 5.3f ", i)
+				s = fmt.Sprintf("%+5.3f", i)
 			default:
 				s = "?"
 			}

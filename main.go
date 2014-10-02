@@ -9,7 +9,7 @@ import (
 	_ "github.com/tajtiattila/joyster/block/logic"
 	"github.com/tajtiattila/vjoy"
 	"os"
-	//"time"
+	"time"
 )
 
 var (
@@ -17,6 +17,7 @@ var (
 	prtver   = flag.Bool("version", false, "print version and exit")
 	test     = flag.Bool("test", false, "test config and exit")
 	webgui   = flag.Bool("web", false, "enable web gui")
+	debug    = flag.Bool("debug", false, "debug blocks")
 	addr     = flag.String("addr", ":7489", "web gui address")  // "JY"
 	sharedir = flag.String("share", "share", "share directory") // "JY"
 	Version  = "development"
@@ -55,10 +56,37 @@ func main() {
 	if err != nil {
 		abort(err)
 	}
+	defer func() {
+		// prof might be changed by autoload
+		prof.Close()
+	}()
 
-	fmt.Println("read ok")
-	prof.Tick()
-	fmt.Println("tick ok")
+	var chdbg <-chan time.Time
+	if *debug {
+		chdbg = time.Tick(time.Second / 5)
+	} else {
+		chdbg = make(chan time.Time)
+	}
+
+	chcfg := autoloadconfig(fn)
+	d := prof.D
+	cht := time.Tick(d)
+	for {
+		select {
+		case nprof := <-chcfg:
+			if nprof.D != d {
+				d = nprof.D
+				cht = time.Tick(d)
+			}
+			prof.Close()
+			prof = nprof
+		case <-cht:
+			prof.Tick()
+		case <-chdbg:
+			fmt.Println()
+			block.DebugOutput(os.Stdout, prof, "input", "output")
+		}
+	}
 }
 
 func abort(a ...interface{}) {
@@ -66,7 +94,6 @@ func abort(a ...interface{}) {
 	os.Exit(1)
 }
 
-/*
 func autoloadconfig(fn string) <-chan *block.Profile {
 	ch := make(chan *block.Profile)
 	if fi, err := os.Stat(fn); err == nil {
@@ -75,14 +102,13 @@ func autoloadconfig(fn string) <-chan *block.Profile {
 			for {
 				if fi, err := os.Stat(fn); err == nil && fi.ModTime().After(t) {
 					t = fi.ModTime()
-					cfg := new(Config)
-					if err := cfg.Load(fn); err == nil {
-						ch <- cfg
+					if prof, err := block.Load(fn); err == nil {
+						ch <- prof
 						if !*quiet {
 							fmt.Println("new config loaded")
 						}
 					} else {
-						fmt.Println("config error:", err)
+						fmt.Println(err)
 					}
 				}
 				time.Sleep(time.Second)
@@ -93,4 +119,3 @@ func autoloadconfig(fn string) <-chan *block.Profile {
 	}
 	return ch
 }
-*/
