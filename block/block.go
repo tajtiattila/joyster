@@ -63,7 +63,10 @@ func (t *simpleType) New(p Param) (Block, error) { return t.f(p) }
 func (t *simpleType) MustHaveInput() bool        { return false }
 
 func (t *simpleType) Verify(p Param) error {
-	_, err := t.f(p)
+	blk, err := t.f(p)
+	if c, ok := blk.(Closer); ok {
+		c.Close()
+	}
 	return err
 }
 
@@ -72,6 +75,9 @@ func (t *simpleType) Input() TypeInputMap {
 	if err != nil {
 		panic(fmt.Sprintf("simpleType '%s' does not accept ProtoParam", t.name))
 	}
+	if c, ok := blk.(Closer); ok {
+		defer c.Close()
+	}
 	return blk.Input()
 }
 
@@ -79,6 +85,9 @@ func (t *simpleType) Accept(i PortTypeMap) (PortTypeMap, error) {
 	blk, err := t.f(ProtoParam)
 	if err != nil {
 		panic(fmt.Sprintf("simpleType '%s' does not accept ProtoParam", t.name))
+	}
+	if c, ok := blk.(Closer); ok {
+		defer c.Close()
 	}
 	blki := blk.Input()
 	for name, typ := range i {

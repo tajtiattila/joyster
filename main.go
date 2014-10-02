@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/tajtiattila/joyster/block"
 	_ "github.com/tajtiattila/joyster/block/device/vjoy"
 	_ "github.com/tajtiattila/joyster/block/device/xinput"
 	_ "github.com/tajtiattila/joyster/block/logic"
-	"github.com/tajtiattila/joyster/block/parser"
 	"github.com/tajtiattila/vjoy"
 	"os"
 	//"time"
@@ -51,7 +51,7 @@ func main() {
 		return
 	}
 
-	prof, err := parser.Load(fn)
+	prof, err := block.Load(fn)
 	if err != nil {
 		abort(err)
 	}

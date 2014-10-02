@@ -68,7 +68,6 @@ func RegisterStickFunc(name string, ff func(p Param) (StickFunc, error)) {
 			return nil, err
 		}
 		b := &stickfuncblk{typ: name, f: f}
-		println("createStickFunc", name, p)
 		return b, nil
 	})
 }
@@ -89,7 +88,6 @@ func (b *stickfuncblk) Output() OutputMap {
 }
 
 func (b *stickfuncblk) Validate() error {
-	println("stickfuncblk validate", b, b.xi, b.yi, CheckInputs(b.typ, &b.xi, &b.yi))
 	return CheckInputs(b.typ, &b.xi, &b.yi)
 }
 func (b *stickfuncblk) Tick() { b.xo, b.yo = b.f(*b.xi, *b.yi) }

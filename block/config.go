@@ -1,6 +1,9 @@
 package block
 
-const DefaultTickTime = 1e-3 // 1 millisecond
+const (
+	DefaultTickFreq     = 1e3 // 1 millisecond
+	defaultTickFreqName = "Update"
+)
 
 type Param interface {
 	Arg(string) float64
@@ -21,5 +24,5 @@ type protoparam struct{}
 
 func (*protoparam) Arg(n string) float64               { return 0.5 }
 func (*protoparam) OptArg(n string, d float64) float64 { return d }
-func (*protoparam) TickFreq() float64                  { return 1e3 }
-func (*protoparam) TickTime() float64                  { return 1e-3 }
+func (*protoparam) TickFreq() float64                  { return DefaultTickFreq }
+func (*protoparam) TickTime() float64                  { return 1 / DefaultTickFreq }

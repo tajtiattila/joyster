@@ -8,6 +8,9 @@ import (
 
 func init() {
 	block.RegisterParam("vjoy", func(p block.Param) (block.Block, error) {
+		if p == block.ProtoParam {
+			return new(vjoyproto), nil
+		}
 		return newVjoyBlock(uint(p.Arg("device")))
 	})
 }
@@ -83,6 +86,10 @@ func (v *vjoyblk) Input() block.InputMap {
 
 func (v *vjoyblk) Output() block.OutputMap { return nil }
 func (v *vjoyblk) Validate() error         { return nil }
+func (v *vjoyblk) Close() error {
+	v.dev.Relinquish()
+	return nil
+}
 
 func (v *vjoyblk) Tick() {
 	for _, a := range v.axes {
@@ -97,10 +104,31 @@ func (v *vjoyblk) Tick() {
 	v.dev.Update()
 }
 
+type vjoyproto struct{}
+
+func (v *vjoyproto) Output() block.OutputMap { return nil }
+func (v *vjoyproto) Validate() error         { return nil }
+func (v *vjoyproto) Input() block.InputMap {
+	m := make(map[string]interface{})
+	fp := new(float64)
+	for _, n := range axes {
+		m[n] = &fp
+	}
+	hp := new(int)
+	for i := 0; i < 4; i++ {
+		m[fmt.Sprint("hat", i+1)] = &hp
+	}
+	bp := new(bool)
+	for i := 0; i < 32; i++ {
+		m[fmt.Sprint(i+1)] = &bp
+	}
+	return block.MapInput("vjoyproto", m)
+}
+
 var hatmap []vj.HatState
 
 func init() {
-	hatmap := make([]vj.HatState, block.HatMax)
+	hatmap = make([]vj.HatState, block.HatMax)
 	for i := 0; i < block.HatMax; i++ {
 		var hs vj.HatState
 		switch {

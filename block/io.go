@@ -10,9 +10,11 @@ func newParserTypeMap(tm TypeMap) parser.TypeMap {
 	for _, t := range tm {
 		pt := &parserType{name: t.Name(), typ: t}
 		im := t.Input()
-		pt.inames = pt.proto.Input().Names()
-		for _, n := range im.Names() {
-			pt.im = append(pt.im, parser.Port{n, parser.PortType(im.Type(n))})
+		if im != nil {
+			pt.inames = im.Names()
+			for _, n := range im.Names() {
+				pt.im = append(pt.im, parser.Port{n, parser.PortType(im.Type(n))})
+			}
 		}
 		ptm[t.Name()] = pt
 	}
@@ -31,14 +33,13 @@ func (pm parserTypeMap) GetType(n string) (parser.Type, error) {
 type parserType struct {
 	name   string
 	typ    Type
-	proto  Block
 	inames []string
 	im     parser.PortMap
 	om     map[uint64]parser.PortMap
 }
 
 func (t *parserType) Input() parser.PortMap { return t.im }
-func (t *parserType) MustHaveInput() bool   { return t.MustHaveInput() }
+func (t *parserType) MustHaveInput() bool   { return t.typ.MustHaveInput() }
 
 func (t *parserType) Output(forinput parser.PortMap) (om parser.PortMap) {
 	im := make(PortTypeMap)
@@ -70,6 +71,6 @@ type parseParam struct {
 
 func (p *parseParam) Arg(n string) float64               { return p.r.Arg(n) }
 func (p *parseParam) OptArg(n string, d float64) float64 { return p.r.OptArg(n, d) }
-func (p *parseParam) TickFreq() float64                  { return p.r.OptArg("Update", 1e3) }
+func (p *parseParam) TickFreq() float64                  { return p.r.OptArg(defaultTickFreqName, DefaultTickFreq) }
 func (p *parseParam) TickTime() float64                  { return 1 / p.TickFreq() }
 func (p *parseParam) Err() error                         { return p.r.Err() }

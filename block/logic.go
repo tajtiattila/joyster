@@ -15,7 +15,7 @@ func init() {
 	RegisterLogicFunc("and", func(a, b bool) bool { return a && b })
 	RegisterLogicFunc("or", func(a, b bool) bool { return a || b })
 	RegisterLogicFunc("xor", func(a, b bool) bool { return a != b })
-	Register("if", func() Block { return new(ifblk) })
+	RegisterType(new(ifblktype))
 }
 
 type notblk struct {
@@ -45,6 +45,27 @@ func (b *logicopblk) Input() InputMap {
 func (b *logicopblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
 func (b *logicopblk) Validate() error   { return CheckInputs("not", &b.i1, &b.i2) }
 
+type ifblktype struct{}
+
+func (*ifblktype) Name() string             { return "if" }
+func (*ifblktype) New(Param) (Block, error) { return new(ifblk), nil }
+func (*ifblktype) Verify(Param) error       { return nil }
+func (*ifblktype) Input() TypeInputMap      { return &ifinput{nil} }
+func (*ifblktype) Accept(in PortTypeMap) (PortTypeMap, error) {
+	cond, thn, els := in["cond"], in["then"], in["else"]
+	if cond != Bool {
+		return nil, fmt.Errorf("'if' needs bool 'cond'")
+	}
+	if thn == Invalid || els == Invalid {
+		return nil, fmt.Errorf("'if' needs valid 'then' and 'else'")
+	}
+	if thn != els {
+		return nil, fmt.Errorf("'if' needs matching 'then' and 'else'")
+	}
+	return PortTypeMap{"": thn}, nil
+}
+func (*ifblktype) MustHaveInput() bool { return true }
+
 type ifblk struct {
 	cond             *bool
 	valthen, valelse Port
@@ -65,6 +86,19 @@ type ifinput struct {
 }
 
 func (inp *ifinput) Names() []string { return []string{"cond", "then", "else"} }
+
+func (inp *ifinput) Type(sel string) PortType {
+	switch sel {
+	case "cond":
+		return Bool
+	case "then":
+		return Any
+	case "else":
+		return Any
+	}
+	panic(fmt.Sprint("if block has no input named '%s'", sel))
+}
+
 func (inp *ifinput) Set(sel string, port Port) error {
 	b := inp.b
 	switch sel {
@@ -136,18 +170,6 @@ func (inp *ifinput) Set(sel string, port Port) error {
 		}
 	}
 	return nil
-}
-
-func (inp *ifinput) Type(sel string) PortType {
-	switch sel {
-	case "cond":
-		return Bool
-	case "then":
-		return Any
-	case "else":
-		return Any
-	}
-	panic(fmt.Sprint("if block has no input named '%s'", sel))
 }
 
 func matchport(a, b Port) bool {

@@ -9,7 +9,7 @@ var testsrc = []byte(`
 block input [gamepad: 0]
 block output [vjoy: 1]
 
-set Update=1m TapDelay=200m KeepPushed=250m
+set Update=1000 TapDelay=200m KeepPushed=250m
 
 # axes
 
@@ -141,9 +141,6 @@ conn headlook.x [if headlooktoggle rs.x 0]
 conn headlook.y [if headlooktoggle rs.y 0]
 conn headlook.enable headlooktoggle
 `)
-
-func init() {
-}
 
 func TestParser(t *testing.T) {
 	p := newparser(newtestnamespace())

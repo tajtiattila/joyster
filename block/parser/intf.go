@@ -12,6 +12,11 @@ type Profile struct {
 	Blocks []*Blk     // slice of all Blks found in source
 }
 
+func Parse(src string, tm TypeMap) (*Profile, error) {
+	data := []byte(src)
+	return read(data, tm)
+}
+
 func ReadProfile(r io.Reader, tm TypeMap) (*Profile, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
