@@ -11,14 +11,58 @@ func init() {
 		if p == block.ProtoParam {
 			return new(vjoyproto), nil
 		}
-		return newVjoyBlock(uint(p.OptArg("Device", 1)))
+		return newVjoyBlock(int(p.OptArg("Device", 1)))
 	})
+}
+
+type devnode struct {
+	device   *vj.Device
+	usecount int
+}
+
+var devices []devnode
+
+func openvjoy(idev int) (*vj.Device, error) {
+	if idev < len(devices) {
+		node := &devices[idev]
+		if node.device != nil {
+			node.usecount++
+			return node.device, nil
+		}
+	}
+	dev, err := vj.Acquire(uint(idev))
+	if err != nil {
+		return nil, err
+	}
+	if len(devices) <= idev {
+		n := make([]devnode, idev+1, 3*idev+1)
+		copy(n, devices)
+		devices = n
+	}
+	devices[idev] = devnode{dev, 1}
+	return dev, nil
+}
+
+func closevjoy(idev int) error {
+	if idev < len(devices) {
+		node := &devices[idev]
+		if node.usecount != 0 && node.device != nil {
+			node.usecount--
+			if node.usecount == 0 {
+				node.device.Relinquish()
+				node.device = nil
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("device %d not open", idev)
 }
 
 var axes = []string{"x", "y", "z", "rx", "ry", "rz", "u", "v"}
 
 type vjoyblk struct {
-	dev *vj.Device
+	idev int
+	dev  *vj.Device
 
 	axes    []*axis
 	buttons []*btn
@@ -40,12 +84,12 @@ type btn struct {
 	p *vj.Button
 }
 
-func newVjoyBlock(idev uint) (block.Block, error) {
-	d, err := vj.Acquire(idev)
+func newVjoyBlock(idev int) (block.Block, error) {
+	d, err := openvjoy(idev)
 	if err != nil {
 		return nil, err
 	}
-	blk := &vjoyblk{dev: d}
+	blk := &vjoyblk{idev: idev, dev: d}
 
 	zero := new(float64)
 	blk.axes = []*axis{
@@ -89,8 +133,7 @@ func (v *vjoyblk) Input() block.InputMap {
 func (v *vjoyblk) Output() block.OutputMap { return nil }
 func (v *vjoyblk) Validate() error         { return nil }
 func (v *vjoyblk) Close() error {
-	v.dev.Relinquish()
-	return nil
+	return closevjoy(v.idev)
 }
 
 func (v *vjoyblk) Tick() {
