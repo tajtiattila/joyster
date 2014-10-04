@@ -11,7 +11,7 @@ func init() {
 		if p == block.ProtoParam {
 			return new(vjoyproto), nil
 		}
-		return newVjoyBlock(uint(p.Arg("device")))
+		return newVjoyBlock(uint(p.OptArg("Device", 1)))
 	})
 }
 

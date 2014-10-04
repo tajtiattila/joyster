@@ -7,7 +7,7 @@ import (
 
 func init() {
 	block.RegisterParam("gamepad", func(p block.Param) (block.Block, error) {
-		return &gamepad{dev: uint(p.Arg("device"))}, nil
+		return &gamepad{dev: uint(p.OptArg("device", 0))}, nil
 	})
 }
 
@@ -32,11 +32,11 @@ func (p *gamepad) Input() block.InputMap { return nil }
 func (p *gamepad) Validate() error       { return nil }
 
 func (p *gamepad) Output() block.OutputMap {
-	return block.MapOutput("gamepad",
-		pt("buttona", &p.a),
-		pt("buttonb", &p.b),
-		pt("buttonx", &p.x),
-		pt("buttony", &p.y),
+	return block.MapOutput("Device",
+		pt("a", &p.a),
+		pt("b", &p.b),
+		pt("x", &p.x),
+		pt("y", &p.y),
 		pt("start", &p.start),
 		pt("back", &p.back),
 		pt("ltrigger", &p.ltrigger),

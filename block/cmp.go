@@ -22,16 +22,24 @@ func (b *cmpopblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
 func (b *cmpopblk) Validate() error   { return CheckInputs(b.typ, &b.i1, &b.i2) }
 
 func init() {
-	RegisterCmpFunc("eq", func(a, b float64) bool { return eq(a, b) })
-	RegisterCmpFunc("ne", func(a, b float64) bool { return !eq(a, b) })
+	RegisterCmpFunc("eq", func(a, b float64) bool { return a == b })
+	RegisterCmpFunc("ne", func(a, b float64) bool { return a != b })
 	RegisterCmpFunc("lt", func(a, b float64) bool { return a < b })
 	RegisterCmpFunc("gt", func(a, b float64) bool { return a > b })
 	RegisterCmpFunc("le", func(a, b float64) bool { return a <= b })
 	RegisterCmpFunc("ge", func(a, b float64) bool { return a >= b })
-}
 
-func eq(a, b float64) bool {
-	d := a - b
-	const rounderr = 1e-4
-	return -rounderr < d && d < rounderr
+	RegisterParam("xeq", func(p Param) (Block, error) {
+		r := p.OptArg("Range", 1e-3)
+		return &cmpopblk{typ: "xeq", tick: func(a, b float64) bool {
+			return a <= b+r && b <= a+r
+		}}, nil
+	})
+	RegisterParam("xne", func(p Param) (Block, error) {
+		r := p.OptArg("Range", 1e-3)
+		return &cmpopblk{typ: "xne", tick: func(a, b float64) bool {
+			return a+r < b && b+r < a
+		}}, nil
+	})
+
 }

@@ -9,8 +9,8 @@ func init() {
 	block.RegisterParam("headlook", func(p block.Param) (block.Block, error) {
 		return newHeadlook(p), nil
 	})
-	block.RegisterParam("triggeraxis", func(p block.Param) (block.Block, error) {
-		return newTriggerAxis(p), nil
+	block.RegisterParam("pedals", func(p block.Param) (block.Block, error) {
+		return newPedals(p), nil
 	})
 }
 
@@ -110,7 +110,7 @@ func (l *viewaccumulatelogic) centeraccel(a, limit float64) {
 	}
 }
 
-type triggeraxis struct {
+type pedals struct {
 	axisThreshold  float64
 	breakThreshold float64
 	exp            float64
@@ -122,12 +122,12 @@ type triggeraxis struct {
 	pos float64
 }
 
-func newTriggerAxis(p block.Param) block.Block {
+func newPedals(p block.Param) block.Block {
 	at := p.Arg("AxisThreshold")
 	bt := p.Arg("BreakThreshold")
 	exp := p.Arg("Exp")
 	m := 1 / (1 - at)
-	return &triggeraxis{
+	return &pedals{
 		axisThreshold:  at,
 		breakThreshold: bt,
 		exp:            exp,
@@ -135,23 +135,23 @@ func newTriggerAxis(p block.Param) block.Block {
 	}
 }
 
-func (t *triggeraxis) Input() block.InputMap {
-	return block.MapInput("triggeraxis",
+func (t *pedals) Input() block.InputMap {
+	return block.MapInput("pedals",
 		pt("left", &t.left),
 		pt("right", &t.right),
 	)
 }
 
-func (t *triggeraxis) Output() block.OutputMap {
-	return block.MapOutput("triggeraxis",
+func (t *pedals) Output() block.OutputMap {
+	return block.MapOutput("pedals",
 		pt("", &t.pos),
 		pt("break", &t.brk),
 	)
 }
 
-func (t *triggeraxis) Validate() error { return block.CheckInputs("triggeraxis", &t.left, &t.right) }
+func (t *pedals) Validate() error { return block.CheckInputs("pedals", &t.left, &t.right) }
 
-func (t *triggeraxis) Tick() {
+func (t *pedals) Tick() {
 	lv, rv := *t.left, *t.right
 	lx, ly := lv > t.breakThreshold, rv > t.breakThreshold
 	if lx == ly {
@@ -163,7 +163,7 @@ func (t *triggeraxis) Tick() {
 	}
 }
 
-func (t *triggeraxis) triggervalue(v float64) float64 {
+func (t *pedals) triggervalue(v float64) float64 {
 	vv := v - t.axisThreshold
 	if vv <= 0 {
 		return 0

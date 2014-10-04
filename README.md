@@ -28,311 +28,359 @@ XInput: should be available on any modern Windows system
 
 Tested only with vJoy 2.0.4 on Windows 7 64-bit.
 
-Usage
------
+Operation
+---------
 
-`joyster`
+The operation principle of joyster is based on logic blocks connected to each other.
+Blocks can have any number of inputs and outputs. Some block types have parameters
+to fine tune their behavior. The config file defines what block
+types are created, and how are they connected to each other. This set of blocks is
+called the profile, which is run `Update` times per second.
 
-Run with default configuration.
+The inputs and outputs are called ports. Each port has a type, which can be:
 
-`joyster -save config.json`
-
-Write default config to specified file and exit.
-
-`joyster -cfg config.json`
-
-Run using specified config file.
-
-`joyster -web`
-
-Start with a web server that may be used to display toggles and values on an external device.
-
-Thumbsticks
------------
-
-Left thumb -> Axis X/Y
-Right thumb -> Axis RX/RY
-
-Deadzones and response curves can be specified independently for all four
-axes using config.ThumbLX/LY/RX/RY:
-    Min: Deadzone setting, all values under this value will yield no movement
-    Max: Values above this will be set to full movement
-    Pow: Smoothness factor to allow fine tuned control
-
-Furthermore config.ThumbCircle can be specified to be able to use the full
-axes of the virtual joystick when the thumbstick is moved diagonally.
-
-Triggers -> Axis Z/RZ (only when config.Left/RightTrigger.Axis is enabled)
-
-Buttons
--------
-
-Input buttons are recognised according to the following list:
-
-     1     DPAD_UP
-     2     DPAD_DOWN
-     3     DPAD_LEFT
-     4     DPAD_RIGHT
-     5     START
-     6     BACK
-     7     LEFT_THUMB
-     8     RIGHT_THUMB
-     9     LEFT_SHOULDER
-    10     RIGHT_SHOULDER
-    11     LEFT_TRIGGER
-    12     RIGHT_TRIGGER
-    13     BUTTON_A
-    14     BUTTON_B
-    15     BUTTON_X
-    16     BUTTON_Y
-    17     LEFT_TRIGGER pull
-    18     LEFT_TRIGGER touch
-    19     RIGHT_TRIGGER pull
-    20     RIGHT_TRIGGER touch
-
-They are mapped according to elements in config.Buttons to output buttons.
-
-A maximum number of 128 output buttons are supported by [vJoy][], but most
-programs can recognise only 32 of them.
-
-Triggers may have two virtual buttons assigned to them based on how far they
-were pulled in. If any of the tresholds are greater than one, then the
-corresponding virtual button will never be activated. TouchThreshold should be smaller
-than PullThreshold, otherwise it will never be activated.
-
-POV Hats
---------
-
-POV Hats are not supported by [vJoy][] yet, so the D-Pad will be mapped to normal buttons.
+* Numeric ports are for axes. Uses floating point numbers in the range -1..1. Specific ports,
+  such as the triggers on the gamepad may provide only non-negative values.
+* Boolean ports represend buttons and logical flags. They can be either on or off.
+* Hat ports represent directional pads or hats. Internally they are 4-bit numbers, so all possible
+  combinations of the four components (north, east, south, west) are supported.
 
 Configuration
 -------------
 
-Values in the configuration are integers (button indexes), boolean values (for flags) and
-floating point values usually in the range (0..1).
+The config file is a set of block, port and connection specifications.
 
-`config.UpdateMicros` update frequency in microseconds
+Lines starting with a '#' are comments.
 
-`config.TapDelayMicros` is the maximum time between taps for "double-tap" buttons
+`block` creates a named block to be referred from other block and connection specifications.
 
-`config.KeepPushedMicros` specifies how long should a double-tapped button kept pressed
+`port` creates a new name for an existing input or output port.
 
-`config.ThumbCircle` modifies the logic of reading thumbstick positions. Normally when the
-thumbstick is moved diagonally, the distinct X and Y axes cannot reach their extreme values.
-With this flag enabled, the thumbstick position inside the unit circle are mapped
-to values reaching the corners of the unit square in the output.
+`conn` connects an input port to an output port.
 
---------------------------------------------------------------------------------
+`set` sets global configuration parameters, and defines defaults for blocks.
 
-`config.ThumbLX`
-`config.ThumbLY`
-`config.ThumbRX`
-`config.ThumbRY`
+Blocks and single-port inputs can be defined using:
 
-Settings for thumb stick axes. These are maps of following values:
+	[blocktype input1 input2 .... : parameters]
+	block blockname [blocktype input1 input2 .... : parameters]
 
-`Min` sets the deadzone. Input values values under this value will yield zero output.
-Valid values are between 0 and 1.
+Furthermore, a chained group of blocks can be defined using curly braces. A
+block created this way will have input and output ports matching portnames. The
+input of the group is the first, the output is the last block.
 
-`Max` sets the upper bound. Input Values above this will yield maximal output value.
-Valid values are between 0 and 1.
+	block groupname { portnames
+		[block1 ...]
+		[block2 ...]
+	}
 
-`Pow` is the smoothness factor. The normalized input value between Min and Max will
-be raised to this power. Larger values yield fine control easier at the expense of
-reduced precision and responsiveness for large output values. Useful values are
-between 1 and 5.
+Ports of blocks are referred to using a period between the block and port names. Ports of
+blocks having a single input or output have no name, so they are referred to simply
+using the block name with no period and port name following.
 
---------------------------------------------------------------------------------
+Ports and connection are defined using the following syntax:
 
-`config.LeftTrigger`
-`config.RightTrigger`
+	port portname blockname.portname
+	conn portname sourceblockname.portname
+	conn blockname.port sourceblockname.portname
 
-Settings for triggers. These are maps with the following values:
+Examples:
 
-`PullTreshold` sets the threshold, above which the corresponding "pull" output
-button will be set.
+	port shift gamepad.lthumb
+	conn vjoy.x gamepad.rx
+	conn vjoy.1 [and gamepad.1 gamepad.lbumper]
 
-`TouchTreshold` sets the threshold, above which the corresponding "touch"
-output button will be set.
+Parameters are always floating point values. Values support some SI prefixes. Block parameters
+are specified after a colon, and can be either a named (`Param1=0.5 Param2=1`) or positional
+argument list (`0.5 1`).
 
-`Axis` enables the trigger into an axis.
+The config file is parsed according to the following syntax pseudo-specification.
 
-`TouchTreshold` should be smaller than `PullTreshold` to be of any use. If set to an equal
-or larger value than `PullThreshold` then the "touch" button in the output will never fire.
+	stmt =
+		'block' name blockspec
+		'port' name block ['.' spec]
+		'conn' portspec portspec
+		'set' namedarglist
+	arglist = posarglist | namedarglist
+	posarglist =
+		value [' ' value]*
+	value =
+		digit* [
+	namedarglist =
+		name '=' value [' ' value]*
+	portspecs = portspec [' ' portspec]*
+	portspec =
+		name
+		name.selector
+	blockspec =
+		plugvalue
+		portspec
+		newblockspec
+		{ newblockspec [newblockspec]* }
+	newblockspec =
+		'[' blocktype [portspecs] [':' arglist] ']'
+		'$' '[' blocktype [':' arglist] ']'
+		'{' inputnames [blockspec]* '}'
+	plugvalue =
+		on | off | true | false
+		digits* ['.' digits*] ['k' | 'm' | 'u' | 'μ' | 'n']
+		centre | north | south | east | west
 
---------------------------------------------------------------------------------
+Block types
+-----------
 
-`config.Buttons`
+A list of supported block types follows.
 
-Array of buttons that will appear in the output.
+Some blocks have parameters. Currently only floating point values are supported. The actual unit of parameter values
+typically fall into one of the following categories:
 
-`Output` is the output button index, ideally in the range 1-32. If the output button
-is not configured for the [vJoy][] device, this button setting will have no effect.
+* relative axis value
+* time in seconds (fractions are supported)
+* axis value per second
+* boolean flag (nonzero meaning true)
 
-`Sources` is an array of input buttons, they must be held together to have the button
-triggered. Normally only a single input is specified here, but more than one may be used
-if an input button is used as a shift button. 
+# Device blocks
 
-If any input button index appears in multiple `Source` blocks, they will be subjected
-to special handling. Eg. with
+Device blocks typically have only either inputs or outputs.
 
-`"Buttons":[
-	{"Output":1, "Sources": [13]},
-	{"Output":2, "Sources": [9, 13]},
-]`
+## vjoy
 
-Output 1 will be fired only when input 13 is pressed, but 9 is not.
+`vjoy` creates a [vJoy] output block. The single optional `Device` parameter specifies
+which one will be used. The default is 1 (first vJoy device).
 
-`Double` is a second output for this button, when the input(s) are double tapped.
-The output will be triggered if the input button is pressed twice in quick succession.
-The normal output will be disabled while the double output is set. This is useful for
-continuous outputs, eg. normal: increase throttle, double: set throttle to 100%.
+* Axes: `x` `y` `z` `rx` `ry` `rz` `u` `v`
+* Buttons: `1` .. `32`
+* Hats: `hat1` .. `hat4`
 
-virtual joystick
-----------------
+The `vjoy` block supports 4-way discrete hats only, so only one of the input components will be used. Inputs
+representing diagonals will yield their vertical (north or south) component.
 
-The output virtual joystick has the following controls:
+## gamepad
 
-Left thumb: Joy_XAxis and Joy_YAxis
-Right thumb: Joy_RXAxis and Joy_RYAxis
+`gamepad` creates an XBOX gamepad input block. The single optional `Device` parameter specifies
+which one will be used. The default is 0 (first controller).
 
-Buttons: Joy_1, Joy_2, ... Joy_32
+* Axes: `lx` `ly` `rx` `ry` `lt` `rt`
+* Buttons: `a` `b` `x` `y` `ltrigger` `rtrigger` `lbumper` `rbumper` `lthumb` `rthumb` `start` `back`
+* Hats: `dpad`
 
-Example
--------
+Triggers are provided both as buttons (`ltrigger` and `rtrigger`) and also as axes (`lt` and `rt`).
 
-An example configuration for Elite: Dangerous with the controls below
-can be found in the misc/ed directory.
+# logic blocks
 
-### Flight controls
+Logic blocks process input. They may or may not have an internal state. Pure functional blocks like `and`
+process their input directly to yield the output, while a block with state like `toggle` output value based on
+the internal state which may be adjusted with input.
 
-#### Triggers
+# Simple blocks
 
-Fire Primary/Secondary
+Simple blocks have only input and output, but no parameters.
 
-#### Shoulders
+| Name | Input | Output | Category |
+|------|-------|--------|----------|
+| `not` |  bool |   bool  | logical not |
+| `and` `or` `xor`|  2x bool|   bool | logical operators |
+| `lt` `gt` `le` `ge` |  2x axis | bool | comparison |
+| `eq` `ne` |  2x axis | bool | equality (see also `xeq` and `xne`) |
+| `add` `sub` `mul` `div` `mod` `pow` | 2x axis | axis | math |
+| `min` `max` | 2x axis | axis | select smaller/larger input |
+| `absmin` `absmax` | 2x axis | axis | select input with smaller/larger abs. value |
+| `if` | bool, 2x axis | axis | select input based on bool condition |
+| `hatadd` `hatsub` `hatxor` | 2x hat | hat | combine/subtract/flip hat values |
 
-used as shift (LS and RS)
+# Blocks with parameters
 
-#### D-Pad: targeting
+`xeq` and `xne` are similar to `eq` and `ne`, but uses the `Range` parameter to decide
+it the values are close enough, rather than using exact comparison that may be inaccurate
+because of floating point rounding errors.
 
-* Up: target ahead
-* Down: highest thread
-* Left/Right: prev/next subsystem
+# Blocks with state
 
-#### LS + D-Pad: targeting extra
+## toggle
 
-* Up/Down: prev/next hostile
-* Left/Right: prev/next ship
+`toggle` outputs a fixed bool value that is toggled when the input signal is changed from `off` to `on`.
 
-#### RS + D-Pad: toggles (hardpoint, landing gear, flight assist, cargo scoop)
+## headlook
 
-* Up: hardpoints
-* Down: landing gear
-* Left: flight assist
-* Right: cargo scoop
+`headlook` is for incremental head look behavior with optional snap to centre.
 
-#### LS + RS + dpad: misc. toggles sensor range, lights
+	block headlook [headlook: MovePerSec=2.0 AutoCenterDist=0.2 AutoCenterAccel=0.001 JumpToCenterAccel=0.1]
+	conn headlook.x [if headlooktoggle rs.x 0]
+	conn headlook.y [if headlooktoggle rs.y 0]
+	conn headlook.enable headlooktoggle
 
-* Up/Down: sensor range
-* Right: ship spotlight
+## doublebutton
 
-#### Buttons: thrust
+`doublebutton` defines a block that can be "double clicked". It provides two
+outputs, one unnamed representing the input itself, and `double` which is set
+if two successive inputs came within `TapDelay` seconds. `double` will be set
+to `on` for `KeepPushed` seconds. Only one of the outputs will ever be set to
+`on`, that is, a "double click" forces the unnamed output to be `off` for the
+time being itself is pushed.
 
-* X: increase throttle (double: set to 100%)
-* A: reduce throttle (double: set to 0%)
-* B: engine boost
-* Y: throttle to 50% (double: set to -100%)
+## multibutton
 
-#### LS + Buttons: thrust extra
+`multibutton` is a push counter. It counts how many times a button was pressed
+with at most `TapDelay` seconds between button pushes, and sets the
+corresponding numbered output to `on` for `KeepPushed` seconds. Only one of the
+outputs will be set, meaning two quick pushes will yield an output on `2` only,
+but not on `1`.
 
-* A: thrust backward
-* X: thrust forward
-* B: frameshift
+This means `multibutton` has to wait `TapDelay` seconds after the last button
+press to know which output must be set, therefore a `multibutton` with two
+outputs is differen than `doublebutton` in this regard.
 
-#### RS + Buttons: power distribution
+# Special blocks
 
-* X: increase SYS
-* Y: increase ENG
-* B: increase WEP
-* A: balance power
+## pedals
 
-#### Left Thumb
+`pedals` takes two axis values and turn them into a single combined axis. In addition to that a boolean
+flag will be set if both inputs are in use. The axis output is always zero if break is `on`. Parameters:
 
-* Axes: Pitch and Yaw (Galaxy map: Translate X and Y)
-* Button: yaw to roll toggle (Galaxy map: Z/Y toggle)
+| Parameter | Description |
+|-----------|-------------|
+| AxisThreshold | only use input above this treshold for axis output |
+| BreakThreshold | only use input above this treshold for break output |
+| Exp | exponent to use on axis output (default is 1 - linear) |
 
-#### Right Thumb
+Example assuming `z` to be the rudder, and button `1` to be the break:
 
-* Axes: Lateral and vertical thrust (Galaxy map: Rotate X and Y)
-* Button: headlook toggle
+	block triggerYaw [pedal gamepad.lt gamepad.rt: AxisThreshold=0.15 BreakThreshold=0.05 Exp=1.5]
+	conn output.z triggerYaw
+	conn output.1 triggerYaw.break
 
-----------
+## hatelem and makehat
 
-### UI Focus
+`makehat` combines four bool inputs into a hat.
 
-* D-Pad: move selection
-* Triggers: prev/next page
-* A: select
+`hatelem` decomposes a hat into four distinct bool outputs.
 
-### Galaxy map
+The four boolean inputs are named `n`, `s`, `e` and `w` after the cardinal directions.
 
-#### Left Thumb
+Example:
 
-* Axes: Translate X and Y
-* Button: Z/Y toggle
+	block dpaddir [hatelem gamepad.dpad]
+	port dpadup    dpaddir.n
+	port dpaddown  dpaddir.s
+	port dpadleft  dpaddir.w
+	port dpadright dpaddir.e
 
-#### Right Thumb
+	block buttonshat [makehat]
+	conn buttonshat.n gamepad.y
+	conn buttonshat.s gamepad.a
+	conn buttonshat.w gamepad.x
+	conn buttonshat.e gamepad.b
 
-* Axes: Rotate X and Y
+## combo
 
-#### Other
+`combo` multiplexes a single hat input to create four hat outputs. An output is triggered
+if any of the hats are pressed twice within `TapDelay` seconds. The first input selects
+one of the outputs `n`, `s`, `e` and `w`, the second tells what value it should be set for
+`KeepPushed` seconds. The unnamed output will be set for `KeepPushed` seconds if only
+one press happens within `TapDelay` seconds. `combo` will output cardinal directions only,
+and requires that the hat is released before moving on.
 
-* Triggers: prev/next page
-* A: select
+# Stick filters
 
-### Notes
+Stick filters have exactly two inputs and two outputs. Both inputs and outputs
+are named `x` and `y`. A stick filter operates on their values as if they were vectors.
 
-Buttons that support double click should be shifted within joyster,
-otherwise a double click could be triggered even if a shift button is pressed.
+## circlesquare
 
-Outputs:
+`circlesquare` converts the `x` and `y` axis positions in a circle into vectors
+on a square. This lets gamepad stick vectors constrained to be within the range
+less than or equal to one around the center to reach the extreme corner
+coordinates. That is, an input of x,y=√2,√2 yields x,y=1,1. The optional
+parameter `Factor` can be used to reduce the effect of this block: 0 yields
+output is same as input, 1 (default) yields full effect.
 
-* 1-20: same as inputs (see "Buttons" above)
-* 21-24: buttons with LS
-* 25-28: buttons with RS
-* 29-32: buttons double tap
+Using this block is not recommended, `multiply` on the two axes tipically
+porduce more intuitive behaviour.
 
-Config:
+## circulardeadzone
 
-		  "Buttons": [
-			  { "Output":1,  "Inputs":[1]  },
-			  { "Output":2,  "Inputs":[2]  },
-			  { "Output":3,  "Inputs":[3]  },
-			  { "Output":4,  "Inputs":[4]  },
-			  { "Output":5,  "Inputs":[5]  },
-			  { "Output":6,  "Inputs":[6]  },
-			  { "Output":7,  "Inputs":[7]  },
-			  { "Output":8,  "Inputs":[8]  },
-			  { "Output":9,  "Inputs":[9]  },
-			  { "Output":10, "Inputs":[10] },
-			  { "Output":11, "Inputs":[11] },
-			  { "Output":12, "Inputs":[12] },
-			  { "Output":13, "Inputs":[13], "Double":29 },
-			  { "Output":14, "Inputs":[14], "Double":30 },
-			  { "Output":15, "Inputs":[15], "Double":31 },
-			  { "Output":16, "Inputs":[16], "Double":32 },
-			  { "Output":17, "Inputs":[17] },
-			  { "Output":18, "Inputs":[18] },
-			  { "Output":19, "Inputs":[19] },
-			  { "Output":20, "Inputs":[20] },
-			  { "Output":21, "Inputs":[9, 13] },
-			  { "Output":22, "Inputs":[9, 14] },
-			  { "Output":23, "Inputs":[9, 15] },
-			  { "Output":24, "Inputs":[9, 16] },
-			  { "Output":25, "Inputs":[10, 13] },
-			  { "Output":26, "Inputs":[10, 14] },
-			  { "Output":27, "Inputs":[10, 15] },
-			  { "Output":28, "Inputs":[10, 16] }
-		  ]
+`circulardeadzone` are used for inputs representing movement. Vectors around
+the centre closer than `Threshold` will report zero. Output for vectors outside
+the circle defined by `Threshold` will have the same direction as the input,
+with magnitude reduced by `Threshold`.
+
+# Axis filters
+
+## deadzone
+
+`deadzone` reduces the absolute input value with a constant `Threshold`, and
+outputs either zero if the reduced value is negative, or the reduced value with
+the sign of the input. The output is multiplied by 1/(1-`Threshold`) so that
+input of 1 or -1 yields the same output.
+
+## offset
+
+`offset` adds the constant parameter `Value` to its input.
+
+## multiply
+
+`multiply` multiplies the input with constant parameter `Factor`.
+
+## curvature
+
+`curvature` applies the power function with exponent 2 ** `Factor` to the
+input, making the input near the center less responsible, thus more precise
+(`Factor`: 0 - linear, positive: exponential).  The output will have the same
+sign as the input.
+
+## truncate
+
+`truncate` inputs with magniture above `Value` to be equal to `Value`. The sign
+of the input is preserved.
+
+## dampen
+
+`dampen` constraints the input to have a maximum change `Value` per second. In
+other words its output chases it inputs with a maximum speed of `Value`.
+
+## smooth
+
+`smooth` accumulates input over the specified amount of `Time`, and yields the
+average value.
+
+## incremental
+
+`incremental` implements a logic where the input is used to adjust an otherwise
+fixed internal value.  The output is adjusted by input multiplied by `Speed`
+per second.  If `Rebound` is nonzero, then the output will converge to zero by
+`Rebound` per second, if input is zero. If `Quickcenter` is nonzero, then an
+input with opposite sign compared to that of the internal value will set the
+internal value back to zero immediately.
+
+Example config
+--------------
+
+	block input [gamepad]
+	block output [vjoy]
+
+	set Update=1000 TapDelay=200m KeepPushed=250m
+
+	# set up bumper as shift
+	port shift input.lbumper
+	block plane0 [and [not shift]]
+	block plane1 [and shift]
+
+	block abtn [doublebutton [if plane0 input.buttona off]]
+
+	# 11-14: unshifted buttons
+	conn output.11 abtn
+	conn output.12 [if plane0 input.buttonb off]
+	conn output.13 [if plane0 input.buttonx off]
+	conn output.14 [if plane0 input.buttony off]
+
+	# 15-18: shifted buttons
+	conn output.15 [if plane1 input.buttona off]
+	conn output.16 [if plane1 input.buttonb off]
+	conn output.17 [if plane1 input.buttonx off]
+	conn output.18 [if plane1 input.buttony off]
+
+	# 20: fired when A is pressed twice
+	conn output.20 abtn.double
+
+
 

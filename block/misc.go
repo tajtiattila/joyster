@@ -1,5 +1,11 @@
 package block
 
+import (
+	"math"
+)
+
+const debug = false
+
 func RegisterScalarFunc(name string, fn func(Param) (func(float64) float64, error)) {
 	RegisterParam(name, func(p Param) (Block, error) {
 		f, err := fn(p)
@@ -17,7 +23,14 @@ type scalarfnblk struct {
 	f   func(float64) float64
 }
 
-func (b *scalarfnblk) Tick()             { b.o = b.f(*b.i) }
+func (b *scalarfnblk) Tick() {
+	b.o = b.f(*b.i)
+	if debug {
+		if math.IsNaN(b.o) {
+			panic(b.typ + " yielded NaN")
+		}
+	}
+}
 func (b *scalarfnblk) Input() InputMap   { return SingleInput(b.typ, &b.i) }
 func (b *scalarfnblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
 func (b *scalarfnblk) Validate() error   { return CheckInputs(b.typ, &b.i) }
@@ -83,6 +96,24 @@ func (b *stickfuncblk) Input() InputMap   { return MapInput(b.typ, pt("x", &b.xi
 func (b *stickfuncblk) Output() OutputMap { return MapOutput(b.typ, pt("x", &b.xo), pt("y", &b.yo)) }
 func (b *stickfuncblk) Validate() error   { return CheckInputs(b.typ, &b.xi, &b.yi) }
 func (b *stickfuncblk) Tick()             { b.xo, b.yo = b.f(*b.xi, *b.yi) }
+
+type HatFunc func(xi, yi int) int
+
+func RegisterHatFunc(name string, f HatFunc) {
+	Register(name, func() Block { return &hatfuncblk{typ: name, f: f} })
+}
+
+type hatfuncblk struct {
+	typ    string
+	xi, yi *int
+	o      int
+	f      func(a, b int) int
+}
+
+func (b *hatfuncblk) Input() InputMap   { return MapInput(b.typ, pt("x", &b.xi), pt("y", &b.yi)) }
+func (b *hatfuncblk) Output() OutputMap { return SingleOutput(b.typ, pt("", &b.o)) }
+func (b *hatfuncblk) Validate() error   { return CheckInputs(b.typ, &b.xi, &b.yi) }
+func (b *hatfuncblk) Tick()             { b.o = b.f(*b.xi, *b.yi) }
 
 func init() {
 	Register("stick", func() Block { return new(stickblk) })
