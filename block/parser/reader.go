@@ -47,18 +47,18 @@ func (r *sourcereader) endstatement() {
 	ok := false
 	for !r.eof() {
 		run, siz := utf8.DecodeRune(r.src[r.pos:])
-		switch run {
-		case '#':
+		switch {
+		case run == '#':
 			r.skipline()
 			ok = true
-		case '\n':
+		case run == '\n':
 			r.nline++
 			r.pline = r.pos + 1
 			fallthrough
-		case ';':
+		case run == ';':
 			ok = true
 			fallthrough
-		case ' ', '\t':
+		case islinespace(run):
 			r.pos += siz
 		default:
 			if !ok {
