@@ -77,7 +77,7 @@ func instantiate(pprof *parser.Profile, tm TypeMap) (p *Profile, err error) {
 		if !ok {
 			return nil, fmt.Errorf("unexpected type for block '%s'", pb.Name)
 		}
-		param := &parseParam{pb.Param.Reader(pprof.Config)}
+		param := &parseParam{parser.NewParamReader(pb.Param, pprof.Config)}
 		blk, err := ptyp.typ.New(param)
 		if err != nil {
 			return nil, err

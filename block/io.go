@@ -57,7 +57,7 @@ func (t *parserType) Output(forinput parser.PortMap) (om parser.PortMap) {
 }
 
 func (t *parserType) Param(p parser.Param, globals parser.NamedParam) error {
-	pp := &parseParam{p.Reader(globals)}
+	pp := &parseParam{parser.NewParamReader(p, globals)}
 	err := t.typ.Verify(pp)
 	if err != nil {
 		return err

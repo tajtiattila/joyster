@@ -1,21 +1,28 @@
 package parser
 
 type Param interface {
-	Reader(globals NamedParam) ParamReader
+	reader(globals NamedParam) ParamReader
 }
 
 type PosParam []float64
 
-func (p PosParam) Reader(globals NamedParam) ParamReader { return newpospr(p, globals) }
+func (p PosParam) reader(globals NamedParam) ParamReader { return newpospr(p, globals) }
 
 type NamedParam map[string]float64
 
-func (p NamedParam) Reader(globals NamedParam) ParamReader { return newnamedpr(p, globals) }
+func (p NamedParam) reader(globals NamedParam) ParamReader { return newnamedpr(p, globals) }
 
 type ParamReader interface {
 	Arg(n string) float64
 	OptArg(n string, def float64) float64
 	Err() error
+}
+
+func NewParamReader(p Param, globals NamedParam) ParamReader {
+	if p != nil {
+		return p.reader(globals)
+	}
+	return &emptypr{globals, nil}
 }
 
 type pospr struct {
@@ -113,4 +120,37 @@ func (p *namedpr) Err() error {
 		}
 	}
 	return nil
+}
+
+type emptypr struct {
+	globals map[string]float64
+
+	firsterr error
+}
+
+func (p *emptypr) Arg(n string) float64 {
+	v, ok := p.val(n, 0)
+	if !ok && p.firsterr == nil {
+		p.firsterr = errf("argument '%s' missing", n)
+	}
+	return v
+}
+
+func (p *emptypr) OptArg(n string, def float64) float64 {
+	v, _ := p.val(n, def)
+	return v
+}
+
+func (p *emptypr) Err() error {
+	if p.firsterr != nil {
+		return p.firsterr
+	}
+	return nil
+}
+
+func (p *emptypr) val(n string, def float64) (v float64, ok bool) {
+	if v, ok = p.globals[n]; ok {
+		return
+	}
+	return def, false
 }
