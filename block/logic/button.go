@@ -121,19 +121,16 @@ func (b *multiButton) Tick() {
 		if b.state {
 			b.tapc = b.taptick
 			b.ntap++
+			if b.ntap == len(b.v) {
+				b.start()
+			}
 		}
 	}
 
 	if b.tapc != 0 {
 		b.tapc--
 		if b.tapc == 0 {
-			idx := b.ntap - 1
-			if idx < len(b.v) {
-				t := b.v[idx]
-				t.o = true
-				t.hold = b.pushlen
-			}
-			b.ntap = 0
+			b.start()
 		}
 	}
 
@@ -145,6 +142,17 @@ func (b *multiButton) Tick() {
 			}
 		}
 	}
+}
+
+func (b *multiButton) start() {
+	idx := b.ntap - 1
+	if idx < len(b.v) {
+		t := b.v[idx]
+		t.o = true
+		t.hold = b.pushlen
+	}
+	b.ntap = 0
+	b.tapc = 0
 }
 
 func pt(n string, v interface{}) block.MapDecl { return block.MapDecl{n, v} }
