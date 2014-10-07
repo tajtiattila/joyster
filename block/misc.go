@@ -1,6 +1,7 @@
 package block
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -35,19 +36,52 @@ func (b *scalarfnblk) Input() InputMap   { return SingleInput(b.typ, &b.i) }
 func (b *scalarfnblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
 func (b *scalarfnblk) Validate() error   { return CheckInputs(b.typ, &b.i) }
 
+var unsetBool = new(bool)
+
 func init() {
-	RegisterBoolFunc("toggle", func(Param) (func(bool) bool, error) {
-		var val, last bool
-		return func(v bool) bool {
-			if v != last {
-				last = v
-				if v {
-					val = !val
-				}
-			}
-			return val
+	RegisterType(&Proto{"toggle", false, func(Param) (Block, error) {
+		return &toggle{
+			i:     unsetBool,
+			set:   unsetBool,
+			reset: unsetBool,
 		}, nil
-	})
+	}})
+}
+
+type toggle struct {
+	i, set, reset *bool
+	o             bool
+
+	il, sl, rl bool
+}
+
+func (b *toggle) Tick() {
+	if *b.i == true && b.il == false {
+		b.o = !b.o
+	}
+	if *b.set == true && b.sl == false {
+		b.o = true
+	}
+	if *b.reset == true && b.rl == false {
+		b.o = false
+	}
+	b.il, b.sl, b.rl = *b.i, *b.set, *b.reset
+}
+
+func (b *toggle) Input() InputMap {
+	return MapInput("toggle", pt("", &b.i), pt("set", &b.set), pt("reset", &b.reset))
+}
+func (b *toggle) Output() OutputMap { return SingleOutput("toggle", &b.o) }
+func (b *toggle) Validate() error {
+	if err := CheckInputs("toggle", &b.i, &b.set, &b.reset); err != nil {
+		return err
+	}
+	if b.i == unsetBool {
+		if b.set == unsetBool || b.reset == unsetBool {
+			return fmt.Errorf("'toggle' unnamed input is unassigned")
+		}
+	}
+	return nil
 }
 
 func RegisterBoolFunc(name string, fn func(Param) (func(bool) bool, error)) {
