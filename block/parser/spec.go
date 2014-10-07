@@ -176,3 +176,8 @@ func (e *namedsource) Source(c *context) (Source, error) {
 	}
 	return &BlkPortSource{blk, sel}, nil
 }
+
+type outputconstraint struct {
+	reason string
+	sels   []string
+}

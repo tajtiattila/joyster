@@ -140,14 +140,8 @@ func (p *parser) parsesource() (input specSource) {
 	switch {
 	case p.r.ch() == '[':
 		lno := p.r.sourceline()
-		f, inputs := p.parsefactory(&blkconstraint{
-			inpdisp:    inpdef_required,
-			mustoutput: []string{""},
-		})
-		blk := p.newblk(lno, fmt.Sprintf("«%s:%d»", f.tname, lno), f.typ, f.param)
-		for i, n := range f.typ.Input().Names() {
-			p.vlink = append(p.vlink, Link{&concreteblksink{lno, blk, n}, inputs[i]})
-		}
+		blk, _ := p.newstandaloneblk("", &blkconstraint{inpdisp: inpdef_required})
+		blk.oc = &outputconstraint{"block used as input source must have unnamed output", []string{""}}
 		input = &concreteblksource{lno, blk, ""}
 	case isnumstart(p.r.ch()):
 		n := p.r.number()
@@ -160,15 +154,9 @@ func (p *parser) parsesource() (input specSource) {
 }
 
 func (p *parser) parseblock(name string) {
-	lno := p.r.sourceline()
-	f, inputs := p.parsefactory(&blkconstraint{})
-	blk := p.newblk(lno, name, f.typ, f.param)
-	if len(inputs) == 0 {
+	blk, hasinput := p.newstandaloneblk(name, &blkconstraint{})
+	if !hasinput {
 		p.sinkNames[name] = blk
-	} else {
-		for i, n := range f.typ.Input().Names() {
-			p.vlink = append(p.vlink, Link{&concreteblksink{lno, blk, n}, inputs[i]})
-		}
 	}
 	p.sourceNames[name] = blk
 }
@@ -204,12 +192,14 @@ func (p *parser) parsegroup(name string) {
 			m := make(map[string]*Blk)
 			for _, sel := range names {
 				blk := p.newblk(lno, fmt.Sprintf("%s#%d.%s", name, idx, sel), f.typ, f.param)
+				blk.oc = &outputconstraint{fmt.Sprintf("group '%s' $element '%s' needs unnamed output", name, f.typ), []string{""}}
 				m[sel] = blk
 			}
 			cur = &dollarPortMapper{p.r.sourceline(), m}
 		} else {
 			f, _ := p.parsefactory(haveinout(names...))
 			blk := p.newblk(lno, fmt.Sprintf("%s#%d", name, idx), f.typ, f.param)
+			blk.oc = &outputconstraint{fmt.Sprintf("group '%s' element '%s' needs names: %v", name, f.typ, names), names}
 			cur = blk
 		}
 		if idx == 0 {
@@ -248,14 +238,6 @@ func (p *parser) parsefactory(constr *blkconstraint) (f *factory, inputs []specS
 	f.typ, err = p.GetType(f.tname)
 	if err != nil {
 		panic(err)
-	}
-	if len(constr.mustoutput) != 0 {
-		for _, n := range constr.mustoutput {
-			if f.typ.Output(f.typ.Input()).Port(n) == Invalid {
-				panic(errf("type '%s' does not have required %s",
-					f.tname, nice(outport, n)))
-			}
-		}
 	}
 	if len(constr.mustonlyinput) != 0 {
 		if len(constr.mustonlyinput) != len(f.typ.Input()) {
@@ -335,6 +317,21 @@ func (p *parser) parseparam() Param {
 	return nil // not reached
 }
 
+func (p *parser) newstandaloneblk(name string, constr *blkconstraint) (*Blk, bool) {
+	lno := p.r.sourceline()
+	f, inputs := p.parsefactory(constr)
+	if name == "" {
+		name = fmt.Sprintf("«%s:%d»", f.tname, lno)
+	}
+	blk := p.newblk(lno, name, f.typ, f.param)
+	if len(inputs) != 0 {
+		for i, n := range f.typ.Input().Names() {
+			p.vlink = append(p.vlink, Link{&concreteblksink{lno, blk, n}, inputs[i]})
+		}
+	}
+	return blk, len(inputs) != 0
+}
+
 func (p *parser) newblk(lno int, name string, typ Type, param Param) *Blk {
 	blk := &Blk{Name: name, Type: typ, Param: param}
 	if p.blklno == nil {
@@ -374,27 +371,13 @@ const (
 type blkconstraint struct {
 	inpdisp       int
 	mustonlyinput []string // blk must have exactly these inputs
-	mustoutput    []string // blk must have this output fields
 }
 
 var anyblock = &blkconstraint{}
-
-func needoutput(names ...string) *blkconstraint { return &blkconstraint{mustoutput: names} }
 
 func haveinout(names ...string) *blkconstraint {
 	return &blkconstraint{
 		inpdisp:       inpdef_prohibited,
 		mustonlyinput: names,
-		mustoutput:    names,
 	}
-}
-
-func (c *blkconstraint) valueallowed() bool {
-	if c.inpdisp == inpdef_required {
-		return false
-	}
-	if len(c.mustoutput) > 1 || len(c.mustoutput) == 1 && c.mustoutput[0] != "" {
-		return false
-	}
-	return true
 }

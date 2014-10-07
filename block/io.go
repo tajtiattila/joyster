@@ -39,16 +39,15 @@ type parserType struct {
 }
 
 func (t *parserType) Input() parser.PortMap { return t.im }
-func (t *parserType) MustHaveInput() bool   { return t.typ.MustHaveInput() }
 
-func (t *parserType) Output(forinput parser.PortMap) (om parser.PortMap) {
+func (t *parserType) Output(forinput parser.PortMap) (om parser.PortMap, err error) {
 	im := make(PortTypeMap)
 	for _, p := range forinput {
 		im[p.Name] = PortType(p.Type)
 	}
 	bom, err := t.typ.Accept(im)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	for n, t := range bom {
 		om = append(om, parser.Port{n, parser.PortType(t)})

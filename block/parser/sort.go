@@ -9,6 +9,8 @@ func sort(ctx *context) error {
 		}
 	}
 
+	// TODO: check if an input is assigned multiple times
+
 	// create set up links and create dependency map
 	dm := make(map[*Blk]int)
 	rm := make(map[*Blk]map[*Blk]bool)
@@ -65,16 +67,32 @@ func sort(ctx *context) error {
 
 	// validate block inputs
 	for _, blk := range ctx.vblk {
-		if blk.Type.MustHaveInput() && len(blk.Type.Input()) != len(blk.Inputs) {
-			return errf("block '%s' defined on line %d has only %d of %d inputs set",
-				blk.Name, ctx.blklno[blk], len(blk.Inputs), len(blk.Type.Input().Names()))
+		lno := ctx.blklno[blk]
+		im, err := blk.InputMap()
+		if err != nil {
+			return errf("block '%s' defined on line %d is incomplete: %v", blk.Name, lno, err)
+		}
+		om, err := blk.Type.Output(im)
+		if err != nil {
+			return errf("block '%s' defined on line %d does not work with input: %v", blk.Name, lno, err)
+		}
+		if blk.oc != nil {
+			for _, n := range blk.oc.sels {
+				if om.Port(n) == Invalid {
+					return errf("block '%s' defined on line %d has no %s: %v",
+						blk.Name, lno, nice(outport, n), blk.oc.reason)
+				}
+			}
 		}
 		for _, p := range blk.Type.Input() {
 			if input, ok := blk.Inputs[p.Name]; ok {
-				pt := input.Type()
+				pt, err := input.Type()
+				if err != nil {
+					return err
+				}
 				if !Match(pt, p.Type) {
 					return errf("block '%s' type mismatch for %s on line %d: want %s, have %s",
-						blk.Name, nice(inport, p.Name), ctx.blklno[blk], PortStr(p.Type), PortStr(pt))
+						blk.Name, nice(inport, p.Name), lno, PortStr(p.Type), PortStr(pt))
 				}
 			}
 		}
