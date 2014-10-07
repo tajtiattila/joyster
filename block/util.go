@@ -141,7 +141,7 @@ func (i *singleInput) Value(sel string) interface{} {
 
 func (i *singleInput) Set(sel string, port Port) error {
 	if sel != "" {
-		return fmt.Errorf("'%s' has no named outputs; '%s' requested", i.title, sel)
+		return fmt.Errorf("'%s' has no named inputs; '%s' requested", i.title, sel)
 	}
 	if err := Connect(i.ii, port); err != nil {
 		return fmt.Errorf("cant connect '%s' unnamed port: %s", i.title, err.Error())
