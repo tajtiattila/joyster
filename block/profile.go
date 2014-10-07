@@ -60,6 +60,7 @@ func (p *Profile) Close() error {
 
 func instantiate(pprof *parser.Profile, tm TypeMap) (p *Profile, err error) {
 	p = new(Profile)
+	psave := p
 	v, ok := pprof.Config[defaultTickFreqName]
 	if !ok {
 		v = DefaultTickFreq
@@ -67,7 +68,7 @@ func instantiate(pprof *parser.Profile, tm TypeMap) (p *Profile, err error) {
 	p.D = time.Duration(float64(time.Second) / v)
 	defer func() {
 		if err != nil {
-			p.Close()
+			psave.Close()
 		}
 	}()
 	p.Names = make(map[Block]string)
