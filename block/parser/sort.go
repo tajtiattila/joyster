@@ -9,9 +9,7 @@ func sort(ctx *context) error {
 		}
 	}
 
-	// TODO: check if an input is assigned multiple times
-
-	// create set up links and create dependency map
+	// set up links and create dependency map
 	dm := make(map[*Blk]int)
 	rm := make(map[*Blk]map[*Blk]bool)
 	var err error
