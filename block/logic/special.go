@@ -20,10 +20,12 @@ type viewaccumulatelogic struct {
 	acapertick     float64
 	autocenterdist float64
 
-	enable *bool
+	reset  *bool
 	xi, yi *float64
-	x, y   float64
-	s      float64
+
+	x, y    float64
+	s       float64
+	doreset bool
 }
 
 func newHeadlook(p block.Param) *viewaccumulatelogic {
@@ -39,12 +41,14 @@ func newHeadlook(p block.Param) *viewaccumulatelogic {
 	if l.jumppertick <= 0.0 {
 		l.jumppertick = 1
 	}
+	b := false
+	l.reset = &b
 	return l
 }
 
 func (l *viewaccumulatelogic) Input() block.InputMap {
 	return block.MapInput("headlook",
-		pt("enable", &l.enable),
+		pt("reset", &l.reset),
 		pt("x", &l.xi),
 		pt("y", &l.yi),
 	)
@@ -58,15 +62,20 @@ func (l *viewaccumulatelogic) Output() block.OutputMap {
 }
 
 func (l *viewaccumulatelogic) Validate() error {
-	return block.CheckInputs("headlook", &l.enable, &l.xi, &l.yi)
+	return block.CheckInputs("headlook", &l.xi, &l.yi)
 }
 
 func (l *viewaccumulatelogic) Tick() {
-	if *l.enable {
+	if *l.reset {
+		l.doreset = true
+	} else {
 		xv, yv := float64(*l.xi), float64(*l.yi)
 		if tiny(xv) && tiny(yv) {
-			l.centeraccel(l.acapertick, l.autocenterdist)
+			if !l.doreset {
+				l.centeraccel(l.acapertick, l.autocenterdist)
+			}
 		} else {
+			l.doreset = false
 			l.x += xv * l.movepertick
 			l.y += yv * l.movepertick
 			if l.x < -1 {
@@ -83,17 +92,21 @@ func (l *viewaccumulatelogic) Tick() {
 			}
 			l.s = 0
 		}
-	} else {
-		l.centeraccel(l.jumppertick, 1e6)
+	}
+	if l.doreset {
+		if l.centeraccel(l.jumppertick, 1e6) {
+			l.doreset = false
+		}
 	}
 }
 
-func (l *viewaccumulatelogic) centeraccel(a, limit float64) {
+func (l *viewaccumulatelogic) centeraccel(a, limit float64) bool {
 	// d=a/2*t²
 	d := math.Sqrt(l.x*l.x + l.y*l.y)
 	switch {
 	case d < 1e-6:
 		l.x, l.y, l.s = 0, 0, 0
+		return true
 	case d < limit:
 		t := math.Sqrt(2 * d / a)
 		maxs := a * t
@@ -108,6 +121,7 @@ func (l *viewaccumulatelogic) centeraccel(a, limit float64) {
 		l.x *= m
 		l.y *= m
 	}
+	return false
 }
 
 type pedals struct {
