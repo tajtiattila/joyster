@@ -140,7 +140,7 @@ func (p *parser) parsesource() (input specSource) {
 	switch {
 	case p.r.ch() == '[':
 		lno := p.r.sourceline()
-		blk, _ := p.newstandaloneblk("", inpdef_required)
+		blk := p.newstandaloneblk("", inpdef_required)
 		blk.oc = &outputconstraint{"block used as input source must have unnamed output", []string{""}}
 		input = &concreteblksource{lno, blk, ""}
 	case isnumstart(p.r.ch()):
@@ -154,10 +154,8 @@ func (p *parser) parsesource() (input specSource) {
 }
 
 func (p *parser) parseblock(name string) {
-	blk, hasinput := p.newstandaloneblk(name, inpdef_allowed)
-	if !hasinput {
-		p.sinkNames[name] = blk
-	}
+	blk := p.newstandaloneblk(name, inpdef_allowed)
+	p.sinkNames[name] = blk
 	p.sourceNames[name] = blk
 }
 
@@ -293,7 +291,7 @@ func (p *parser) parseparam() Param {
 	return nil // not reached
 }
 
-func (p *parser) newstandaloneblk(name string, inpdisp int) (*Blk, bool) {
+func (p *parser) newstandaloneblk(name string, inpdisp int) *Blk {
 	lno := p.r.sourceline()
 	f, inputs := p.parsefactory(inpdisp)
 	if name == "" {
@@ -307,7 +305,7 @@ func (p *parser) newstandaloneblk(name string, inpdisp int) (*Blk, bool) {
 			}
 		}
 	}
-	return blk, len(inputs) != 0
+	return blk
 }
 
 func (p *parser) newblk(lno int, name string, typ Type, param Param) *Blk {
