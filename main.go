@@ -9,6 +9,7 @@ import (
 	_ "github.com/tajtiattila/joyster/block/logic"
 	"github.com/tajtiattila/vjoy"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -16,15 +17,21 @@ var (
 	quiet    = flag.Bool("quiet", false, "don't print info at startup")
 	prtver   = flag.Bool("version", false, "print version and exit")
 	test     = flag.Bool("test", false, "test config and exit")
-	webgui   = flag.Bool("web", false, "enable web gui")
-	debug    = flag.Bool("debug", false, "debug blocks")
-	addr     = flag.String("addr", ":7489", "web gui address")  // "JY"
+	debugl   = flag.String("debug", "", "comma separated list of blocks to debug blocks")
 	sharedir = flag.String("share", "share", "share directory") // "JY"
 	Version  = "development"
+
+	//webgui   = flag.Bool("web", false, "enable web gui")
+	//addr     = flag.String("addr", ":7489", "web gui address")  // "JY"
+
+	debug []string
 )
 
 func main() {
 	flag.Parse()
+	if *debugl != "" {
+		debug = strings.Split(*debugl, ",")
+	}
 
 	if flag.NArg() > 1 {
 		abort("exactly one config parameter required")
@@ -62,7 +69,7 @@ func main() {
 	}()
 
 	var chdbg <-chan time.Time
-	if *debug {
+	if len(debug) != 0 {
 		chdbg = time.Tick(time.Second / 5)
 	} else {
 		chdbg = make(chan time.Time)
@@ -84,7 +91,7 @@ func main() {
 			prof.Tick()
 		case <-chdbg:
 			fmt.Println()
-			block.DebugOutput(os.Stdout, prof, "input", "output")
+			block.DebugOutput(os.Stdout, prof, debug...)
 		}
 	}
 }
