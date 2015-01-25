@@ -2,7 +2,6 @@ package parser
 
 import (
 	"fmt"
-	//"fmt"
 )
 
 /*
@@ -259,6 +258,9 @@ func (p *parser) parsefactory(inpdisp int) (f *factory, inputs []specSource) {
 		inputs = append(inputs, p.parsesource())
 	}
 
+	if ng, na := len(inputs), len(f.typ.Input().Names()); ng > na {
+		panic(errf("type '%s' was given %d inputs, but has only %d", f.tname, ng, na))
+	}
 	return
 }
 
