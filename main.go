@@ -14,30 +14,36 @@ import (
 )
 
 var (
-	quiet    = flag.Bool("quiet", false, "don't print info at startup")
-	prtver   = flag.Bool("version", false, "print version and exit")
-	test     = flag.Bool("test", false, "test config and exit")
-	debugl   = flag.String("debug", "", "comma separated list of blocks to debug blocks")
-	sharedir = flag.String("share", "share", "share directory") // "JY"
-	Version  = "development"
-
-	//webgui   = flag.Bool("web", false, "enable web gui")
-	//addr     = flag.String("addr", ":7489", "web gui address")  // "JY"
-
-	debug []string
+	quiet   bool
+	Version = "development"
 )
 
 func main() {
+	var (
+		prtver bool
+		test   bool
+		debugl string
+		debug  []string
+	)
+
+	flag.BoolVar(&quiet, "quiet", false, "don't print info at startup")
+	flag.BoolVar(&prtver, "version", false, "print version and exit")
+	flag.BoolVar(&test, "test", false, "test config and exit")
+	flag.StringVar(&debugl, "debug", "", "comma separated list of blocks to debug blocks")
+	//flag.BoolVar(webgui, "web", false, "enable web gui")
+	//flag.String(addr, "addr", ":7489", "web gui address")  // "JY"
+	//flag.String(sharedir, "share", "share", "share directory") // "JY"
 	flag.Parse()
-	if *debugl != "" {
-		debug = strings.Split(*debugl, ",")
+
+	if debugl != "" {
+		debug = strings.Split(debugl, ",")
 	}
 
 	if flag.NArg() > 1 {
 		abort("exactly one config parameter required")
 	}
 
-	if !*quiet {
+	if !quiet {
 		fmt.Println("joyster version:", Version)
 		fmt.Println("vJoy version:", vjoy.Version())
 		fmt.Println("  Product:       ", vjoy.ProductString())
@@ -50,8 +56,8 @@ func main() {
 		fn = flag.Arg(0)
 	}
 
-	exit := *test
-	if *prtver {
+	exit := test
+	if prtver {
 		fmt.Println(Version)
 		exit = true
 	}
@@ -111,7 +117,7 @@ func autoloadconfig(fn string) <-chan *block.Profile {
 					t = fi.ModTime()
 					if prof, err := block.Load(fn); err == nil {
 						ch <- prof
-						if !*quiet {
+						if !quiet {
 							fmt.Println("new config loaded")
 						}
 					} else {
