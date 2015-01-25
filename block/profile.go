@@ -2,8 +2,10 @@ package block
 
 import (
 	"fmt"
-	"github.com/tajtiattila/joyster/block/parser"
+	"runtime"
 	"time"
+
+	"github.com/tajtiattila/joyster/block/parser"
 )
 
 type Profile struct {
@@ -116,6 +118,7 @@ func instantiate(pprof *parser.Profile, tm TypeMap) (p *Profile, err error) {
 			p.Tickers = append(p.Tickers, t)
 		}
 	}
+	runtime.GC()
 	// do a test tick to see if everything is in order
 	if err := testtick(p); err != nil {
 		return nil, err
