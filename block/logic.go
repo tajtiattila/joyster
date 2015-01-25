@@ -12,9 +12,9 @@ func RegisterLogicFunc(name string, fn func(a, b bool) bool) {
 
 func init() {
 	Register("not", func() Block { return new(notblk) })
+	RegisterLogicFunc("xor", func(a, b bool) bool { return a && b })
 	RegisterLogicFunc("and", func(a, b bool) bool { return a && b })
 	RegisterLogicFunc("or", func(a, b bool) bool { return a || b })
-	RegisterLogicFunc("xor", func(a, b bool) bool { return a != b })
 	RegisterType(new(ifblktype))
 }
 
@@ -29,19 +29,22 @@ func (b *notblk) Output() OutputMap { return SingleOutput("not", &b.o) }
 func (b *notblk) Validate() error   { return CheckInputs("not", &b.i) }
 
 type logicopblk struct {
-	typ    string
-	o      bool
-	i1, i2 *bool
-	tick   func(a, b bool) bool
+	typ  string
+	o    bool
+	vi   []*bool
+	tick func(a, b bool) bool
 }
 
 func (b *logicopblk) Tick() {
-	b.o = b.tick(*b.i1, *b.i2)
+	b.o = b.tick(*b.vi[0], *b.vi[1])
+	for _, p := range b.vi[2:] {
+		b.o = b.tick(b.o, *p)
+	}
 }
 
-func (b *logicopblk) Input() InputMap   { return MapInput(b.typ, pt("1", &b.i1), pt("2", &b.i2)) }
+func (b *logicopblk) Input() InputMap   { return VarArgInput(b.typ, &b.vi) }
 func (b *logicopblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
-func (b *logicopblk) Validate() error   { return CheckInputs("not", &b.i1, &b.i2) }
+func (b *logicopblk) Validate() error   { return VarArgCheck(b.typ, &b.vi, 2) }
 
 type ifblktype struct{}
 

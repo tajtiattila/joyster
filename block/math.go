@@ -34,13 +34,19 @@ func init() {
 }
 
 type mathopblk struct {
-	typ    string
-	i1, i2 *float64
-	o      float64
-	tick   func(a, b float64) float64
+	typ  string
+	vi   []*float64
+	o    float64
+	tick func(a, b float64) float64
 }
 
-func (b *mathopblk) Tick()             { b.o = b.tick(*b.i1, *b.i2) }
-func (b *mathopblk) Input() InputMap   { return MapInput(b.typ, pt("1", &b.i1), pt("2", &b.i2)) }
+func (b *mathopblk) Tick() {
+	b.o = b.tick(*b.vi[0], *b.vi[1])
+	for _, p := range b.vi[2:] {
+		b.o = b.tick(b.o, *p)
+	}
+}
+
+func (b *mathopblk) Input() InputMap   { return VarArgInput(b.typ, &b.vi) }
 func (b *mathopblk) Output() OutputMap { return SingleOutput(b.typ, &b.o) }
-func (b *mathopblk) Validate() error   { return CheckInputs(b.typ, &b.i1, &b.i2) }
+func (b *mathopblk) Validate() error   { return VarArgCheck(b.typ, &b.vi, 2) }
