@@ -1,14 +1,20 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Root>
+	<KeyboardLayout>en-US</KeyboardLayout>
 	<MouseXMode Value="" />
+	<MouseXDecay Value="1" />
 	<MouseYMode Value="" />
-	<MouseDecay Value="0" />
-	<MouseHeadlook Value="1" />
+	<MouseYDecay Value="1" />
 	<MouseSensitivity Value="1.00000000" />
+	<MouseDecayRate Value="4.00000000" />
 	<MouseDeadzone Value="0.05000000" />
 	<MouseLinearity Value="1.00000000" />
+	<MouseHeadlook Value="0" />
+	<MouseHeadlookInvert Value="0" />
+	<MouseHeadlookSensitivity Value="0.50000000" />
+	<MouseGUI Value="0" />
 	<YawAxis>
-		<Binding Device="vJoy" Key="Joy_XAxis" />
+		<Binding Device="vJoy" Key="Joy_ZAxis" />
 		<Inverted Value="0" />
 		<Deadzone Value="0.00000000" />
 	</YawAxis>
@@ -23,12 +29,12 @@
 	<YawToRollMode Value="Bindings_YawIntoRollNone" />
 	<YawToRollSensitivity Value="0.40000001" />
 	<YawToRollButton>
-		<Primary Device="vJoy" Key="Joy_7" />
+		<Primary Device="{NoDevice}" Key="" />
 		<Secondary Device="{NoDevice}" Key="" />
 		<ToggleOn Value="1" />
 	</YawToRollButton>
 	<RollAxis>
-		<Binding Device="{NoDevice}" Key="" />
+		<Binding Device="vJoy" Key="Joy_XAxis" />
 		<Inverted Value="0" />
 		<Deadzone Value="0.00000000" />
 	</RollAxis>
@@ -80,17 +86,17 @@
 		<Secondary Device="{NoDevice}" Key="" />
 	</DownThrustButton>
 	<AheadThrust>
-		<Binding Device="{NoDevice}" Key="" />
+		<Binding Device="vJoy" Key="Joy_RZAxis" />
 		<Inverted Value="0" />
 		<Deadzone Value="0.00000000" />
 	</AheadThrust>
 	<ForwardThrustButton>
 		<Primary Device="{NoDevice}" Key="" />
-		<Secondary Device="vJoy" Key="Joy_23" />
+		<Secondary Device="{NoDevice}" Key="" />
 	</ForwardThrustButton>
 	<BackwardThrustButton>
 		<Primary Device="{NoDevice}" Key="" />
-		<Secondary Device="vJoy" Key="Joy_21" />
+		<Secondary Device="{NoDevice}" Key="" />
 	</BackwardThrustButton>
 	<ThrottleAxis>
 		<Binding Device="{NoDevice}" Key="" />
@@ -105,16 +111,18 @@
 	</ToggleReverseThrottleInput>
 	<ForwardKey>
 		<Primary Device="Keyboard" Key="Key_W" />
-		<Secondary Device="vJoy" Key="Joy_15" />
+		<Secondary Device="vJoy" Key="Joy_3" />
 	</ForwardKey>
 	<BackwardKey>
 		<Primary Device="Keyboard" Key="Key_S" />
-		<Secondary Device="vJoy" Key="Joy_13" />
+		<Secondary Device="vJoy" Key="Joy_1" />
 	</BackwardKey>
 	<ThrottleIncrement Value="0.00000000" />
 	<SetSpeedMinus100>
-		<Primary Device="vJoy" Key="Joy_24" />
-		<Secondary Device="{NoDevice}" Key="" />
+		<Primary Device="{NoDevice}" Key="" />
+		<Secondary Device="vJoy" Key="Joy_11">
+			<Modifier Device="vJoy" Key="Joy_9" />
+		</Secondary>
 	</SetSpeedMinus100>
 	<SetSpeedMinus75>
 		<Primary Device="{NoDevice}" Key="" />
@@ -122,7 +130,9 @@
 	</SetSpeedMinus75>
 	<SetSpeedMinus50>
 		<Primary Device="{NoDevice}" Key="" />
-		<Secondary Device="{NoDevice}" Key="" />
+		<Secondary Device="vJoy" Key="Joy_12">
+			<Modifier Device="vJoy" Key="Joy_9" />
+		</Secondary>
 	</SetSpeedMinus50>
 	<SetSpeedMinus25>
 		<Primary Device="{NoDevice}" Key="" />
@@ -130,22 +140,24 @@
 	</SetSpeedMinus25>
 	<SetSpeedZero>
 		<Primary Device="Keyboard" Key="Key_X" />
-		<Secondary Device="vJoy" Key="Joy_29" />
+		<Secondary Device="vJoy" Key="Joy_5" />
 	</SetSpeedZero>
 	<SetSpeed25>
 		<Primary Device="{NoDevice}" Key="" />
 		<Secondary Device="{NoDevice}" Key="" />
 	</SetSpeed25>
 	<SetSpeed50>
-		<Primary Device="vJoy" Key="Joy_16" />
+		<Primary Device="vJoy" Key="Joy_2" />
 		<Secondary Device="{NoDevice}" Key="" />
 	</SetSpeed50>
 	<SetSpeed75>
 		<Primary Device="{NoDevice}" Key="" />
-		<Secondary Device="{NoDevice}" Key="" />
+		<Secondary Device="vJoy" Key="Joy_13">
+			<Modifier Device="vJoy" Key="Joy_9" />
+		</Secondary>
 	</SetSpeed75>
 	<SetSpeed100>
-		<Primary Device="vJoy" Key="Joy_31" />
+		<Primary Device="vJoy" Key="Joy_7" />
 		<Secondary Device="{NoDevice}" Key="" />
 	</SetSpeed100>
 	<YawAxis_Landing>
@@ -229,18 +241,26 @@
 	</BackwardThrustButton_Landing>
 	<ToggleFlightAssist>
 		<Primary Device="Keyboard" Key="Key_Z" />
-		<Secondary Device="vJoy" Key="Joy_3">
-			<Modifier Device="vJoy" Key="Joy_10" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_POV3Left" />
 		<ToggleOn Value="1" />
 	</ToggleFlightAssist>
 	<UseBoostJuice>
 		<Primary Device="Keyboard" Key="Key_Tab" />
-		<Secondary Device="vJoy" Key="Joy_14" />
+		<Secondary Device="vJoy" Key="Joy_4" />
 	</UseBoostJuice>
+	<HyperSuperCombination>
+		<Primary Device="{NoDevice}" Key="" />
+		<Secondary Device="vJoy" Key="Joy_8" />
+	</HyperSuperCombination>
+	<Supercruise>
+		<Primary Device="Keyboard" Key="Key_BackSlash" />
+		<Secondary Device="vJoy" Key="Joy_14">
+			<Modifier Device="vJoy" Key="Joy_9" />
+		</Secondary>
+	</Supercruise>
 	<Hyperspace>
 		<Primary Device="Keyboard" Key="Key_J" />
-		<Secondary Device="vJoy" Key="Joy_22" />
+		<Secondary Device="{NoDevice}" Key="" />
 	</Hyperspace>
 	<DisableRotationCorrectToggle>
 		<Primary Device="{NoDevice}" Key="" />
@@ -249,56 +269,51 @@
 	</DisableRotationCorrectToggle>
 	<SelectTarget>
 		<Primary Device="Keyboard" Key="Key_T" />
-		<Secondary Device="vJoy" Key="Joy_1" />
+		<Secondary Device="vJoy" Key="Joy_POV1Up" />
 	</SelectTarget>
 	<CycleNextTarget>
 		<Primary Device="Keyboard" Key="Key_G" />
-		<Secondary Device="vJoy" Key="Joy_4">
-			<Modifier Device="vJoy" Key="Joy_9" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_POV2Right" />
 	</CycleNextTarget>
 	<CyclePreviousTarget>
 		<Primary Device="{NoDevice}" Key="" />
-		<Secondary Device="vJoy" Key="Joy_3">
-			<Modifier Device="vJoy" Key="Joy_9" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_POV2Left" />
 	</CyclePreviousTarget>
 	<SelectHighestThreat>
 		<Primary Device="Keyboard" Key="Key_H" />
-		<Secondary Device="vJoy" Key="Joy_2" />
+		<Secondary Device="vJoy" Key="Joy_POV1Down" />
 	</SelectHighestThreat>
 	<CycleNextHostileTarget>
 		<Primary Device="{NoDevice}" Key="" />
-		<Secondary Device="vJoy" Key="Joy_2">
-			<Modifier Device="vJoy" Key="Joy_9" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_POV2Down" />
 	</CycleNextHostileTarget>
 	<CyclePreviousHostileTarget>
 		<Primary Device="{NoDevice}" Key="" />
-		<Secondary Device="vJoy" Key="Joy_1">
-			<Modifier Device="vJoy" Key="Joy_9" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_POV2Up" />
 	</CyclePreviousHostileTarget>
 	<CycleNextSubsystem>
 		<Primary Device="Keyboard" Key="Key_Y" />
-		<Secondary Device="vJoy" Key="Joy_4" />
+		<Secondary Device="vJoy" Key="Joy_POV1Right" />
 	</CycleNextSubsystem>
 	<CyclePreviousSubsystem>
 		<Primary Device="{NoDevice}" Key="" />
-		<Secondary Device="vJoy" Key="Joy_3" />
+		<Secondary Device="vJoy" Key="Joy_POV1Left" />
 	</CyclePreviousSubsystem>
 	<GunsightSystem />
 	<PrimaryFire>
-		<Primary Device="vJoy" Key="Joy_19" />
+		<Primary Device="vJoy" Key="Joy_16" />
 		<Secondary Device="{NoDevice}" Key="" />
 	</PrimaryFire>
 	<SecondaryFire>
-		<Primary Device="vJoy" Key="Joy_17" />
+		<Primary Device="vJoy" Key="Joy_15" />
 		<Secondary Device="{NoDevice}" Key="" />
 	</SecondaryFire>
 	<CycleFireGroupNext>
 		<Primary Device="Keyboard" Key="Key_N" />
-		<Secondary Device="{NoDevice}" Key="" />
+		<Secondary Device="vJoy" Key="Joy_12">
+			<Modifier Device="vJoy" Key="Joy_9" />
+			<Modifier Device="vJoy" Key="Joy_10" />
+		</Secondary>
 	</CycleFireGroupNext>
 	<CycleFireGroupPrevious>
 		<Primary Device="{NoDevice}" Key="" />
@@ -306,56 +321,59 @@
 	</CycleFireGroupPrevious>
 	<DeployHardpointToggle>
 		<Primary Device="Keyboard" Key="Key_U" />
-		<Secondary Device="vJoy" Key="Joy_1">
-			<Modifier Device="vJoy" Key="Joy_10" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_17" />
 	</DeployHardpointToggle>
 	<DeployHardpointsOnFire Value="1" />
 	<ToggleButtonUpInput>
 		<Primary Device="Keyboard" Key="Key_Delete" />
-		<Secondary Device="{NoDevice}" Key="" />
+		<Secondary Device="vJoy" Key="Joy_POV4Up">
+			<Modifier Device="vJoy" Key="Joy_9" />
+			<Modifier Device="vJoy" Key="Joy_10" />
+		</Secondary>
 		<ToggleOn Value="1" />
 	</ToggleButtonUpInput>
 	<DeployHeatSink>
 		<Primary Device="Keyboard" Key="Key_V" />
-		<Secondary Device="{NoDevice}" Key="" />
+		<Secondary Device="vJoy" Key="Joy_14">
+			<Modifier Device="vJoy" Key="Joy_9" />
+			<Modifier Device="vJoy" Key="Joy_10" />
+		</Secondary>
 	</DeployHeatSink>
 	<ShipSpotLightToggle>
 		<Primary Device="Keyboard" Key="Key_L" />
-		<Secondary Device="vJoy" Key="Joy_4">
-			<Modifier Device="vJoy" Key="Joy_9" />
-			<Modifier Device="vJoy" Key="Joy_10" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_POV3Up" />
 	</ShipSpotLightToggle>
 	<RadarIncreaseRange>
 		<Primary Device="Keyboard" Key="Key_RightBracket" />
-		<Secondary Device="vJoy" Key="Joy_1">
-			<Modifier Device="vJoy" Key="Joy_9" />
-			<Modifier Device="vJoy" Key="Joy_10" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_POV4Right" />
 	</RadarIncreaseRange>
 	<RadarDecreaseRange>
 		<Primary Device="Keyboard" Key="Key_LeftBracket" />
-		<Secondary Device="vJoy" Key="Joy_2">
-			<Modifier Device="vJoy" Key="Joy_9" />
-			<Modifier Device="vJoy" Key="Joy_10" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_POV4Left" />
 	</RadarDecreaseRange>
 	<IncreaseEnginesPower>
 		<Primary Device="Keyboard" Key="Key_UpArrow" />
-		<Secondary Device="vJoy" Key="Joy_28" />
+		<Secondary Device="vJoy" Key="Joy_14">
+			<Modifier Device="vJoy" Key="Joy_10" />
+		</Secondary>
 	</IncreaseEnginesPower>
 	<IncreaseWeaponsPower>
 		<Primary Device="Keyboard" Key="Key_RightArrow" />
-		<Secondary Device="vJoy" Key="Joy_26" />
+		<Secondary Device="vJoy" Key="Joy_12">
+			<Modifier Device="vJoy" Key="Joy_10" />
+		</Secondary>
 	</IncreaseWeaponsPower>
 	<IncreaseSystemsPower>
 		<Primary Device="Keyboard" Key="Key_LeftArrow" />
-		<Secondary Device="vJoy" Key="Joy_27" />
+		<Secondary Device="vJoy" Key="Joy_13">
+			<Modifier Device="vJoy" Key="Joy_10" />
+		</Secondary>
 	</IncreaseSystemsPower>
 	<ResetPowerDistribution>
 		<Primary Device="Keyboard" Key="Key_DownArrow" />
-		<Secondary Device="vJoy" Key="Joy_25" />
+		<Secondary Device="vJoy" Key="Joy_11">
+			<Modifier Device="vJoy" Key="Joy_10" />
+		</Secondary>
 	</ResetPowerDistribution>
 	<OculusReset>
 		<Primary Device="Keyboard" Key="Key_F12" />
@@ -363,35 +381,41 @@
 	</OculusReset>
 	<ToggleCargoScoop>
 		<Primary Device="Keyboard" Key="Key_Home" />
-		<Secondary Device="vJoy" Key="Joy_4">
-			<Modifier Device="vJoy" Key="Joy_10" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_POV3Right" />
 		<ToggleOn Value="1" />
 	</ToggleCargoScoop>
 	<EjectAllCargo>
-		<Primary Device="Keyboard" Key="Key_End" />
+		<Primary Device="Keyboard" Key="Key_`" />
 		<Secondary Device="{NoDevice}" Key="" />
 	</EjectAllCargo>
 	<LandingGearToggle>
 		<Primary Device="Keyboard" Key="Key_Insert" />
-		<Secondary Device="vJoy" Key="Joy_2">
-			<Modifier Device="vJoy" Key="Joy_10" />
-		</Secondary>
+		<Secondary Device="vJoy" Key="Joy_POV3Down" />
 	</LandingGearToggle>
 	<MicrophoneMute>
 		<Primary Device="{NoDevice}" Key="" />
 		<Secondary Device="{NoDevice}" Key="" />
 		<ToggleOn Value="0" />
 	</MicrophoneMute>
+	<UseShieldCell>
+		<Primary Device="{NoDevice}" Key="" />
+		<Secondary Device="vJoy" Key="Joy_13">
+			<Modifier Device="vJoy" Key="Joy_9" />
+			<Modifier Device="vJoy" Key="Joy_10" />
+		</Secondary>
+	</UseShieldCell>
+	<FireChaffLauncher>
+		<Primary Device="{NoDevice}" Key="" />
+		<Secondary Device="vJoy" Key="Joy_11">
+			<Modifier Device="vJoy" Key="Joy_9" />
+			<Modifier Device="vJoy" Key="Joy_10" />
+		</Secondary>
+	</FireChaffLauncher>
 	<UIFocusMode Value="Bindings_FocusModeHold" />
 	<UIFocus>
 		<Primary Device="Keyboard" Key="Key_LeftShift" />
-		<Secondary Device="{NoDevice}" Key="" />
+		<Secondary Device="vJoy" Key="Joy_6" />
 	</UIFocus>
-	<Pause>
-		<Primary Device="Keyboard" Key="Key_P" />
-		<Secondary Device="{NoDevice}" Key="" />
-	</Pause>
 	<FocusLeftPanel>
 		<Primary Device="Keyboard" Key="Key_1" />
 		<Secondary Device="{NoDevice}" Key="" />
@@ -412,41 +436,53 @@
 		<Primary Device="Keyboard" Key="Key_2" />
 		<Secondary Device="{NoDevice}" Key="" />
 	</FocusCommsPanel>
-	<UI_Up>
-		<Primary Device="Keyboard" Key="Key_W" />
-		<Secondary Device="vJoy" Key="Joy_1" />
-	</UI_Up>
-	<UI_Down>
-		<Primary Device="Keyboard" Key="Key_S" />
-		<Secondary Device="vJoy" Key="Joy_2" />
-	</UI_Down>
-	<UI_Left>
-		<Primary Device="Keyboard" Key="Key_A" />
-		<Secondary Device="vJoy" Key="Joy_3" />
-	</UI_Left>
-	<UI_Right>
-		<Primary Device="Keyboard" Key="Key_D" />
-		<Secondary Device="vJoy" Key="Joy_4" />
-	</UI_Right>
-	<UI_Select>
-		<Primary Device="Keyboard" Key="Key_Space" />
-		<Secondary Device="vJoy" Key="Joy_13" />
-	</UI_Select>
-	<CycleNextPanel>
-		<Primary Device="Keyboard" Key="Key_E" />
-		<Secondary Device="vJoy" Key="Joy_19" />
-	</CycleNextPanel>
-	<CyclePreviousPanel>
-		<Primary Device="Keyboard" Key="Key_Q" />
-		<Secondary Device="vJoy" Key="Joy_17" />
-	</CyclePreviousPanel>
+	<GalaxyMapOpen>
+		<Primary Device="Keyboard" Key="Key_M" />
+		<Secondary Device="vJoy" Key="Joy_POV4Down" />
+	</GalaxyMapOpen>
 	<HeadLookToggle>
-		<Primary Device="vJoy" Key="Joy_8" />
+		<Primary Device="{NoDevice}" Key="" />
 		<Secondary Device="{NoDevice}" Key="" />
 		<ToggleOn Value="1" />
 	</HeadLookToggle>
-	<HeadlookDefault Value="0" />
-	<HeadlookMode Value="Bindings_HeadlookModeAccumulate" />
+	<Pause>
+		<Primary Device="Keyboard" Key="Key_P" />
+		<Secondary Device="{NoDevice}" Key="" />
+	</Pause>
+	<UI_Up>
+		<Primary Device="Keyboard" Key="Key_W" />
+		<Secondary Device="vJoy" Key="Joy_POV1Up" />
+	</UI_Up>
+	<UI_Down>
+		<Primary Device="Keyboard" Key="Key_S" />
+		<Secondary Device="vJoy" Key="Joy_POV1Down" />
+	</UI_Down>
+	<UI_Left>
+		<Primary Device="Keyboard" Key="Key_A" />
+		<Secondary Device="vJoy" Key="Joy_POV1Left" />
+	</UI_Left>
+	<UI_Right>
+		<Primary Device="Keyboard" Key="Key_D" />
+		<Secondary Device="vJoy" Key="Joy_POV1Right" />
+	</UI_Right>
+	<UI_Select>
+		<Primary Device="Keyboard" Key="Key_Space" />
+		<Secondary Device="vJoy" Key="Joy_1" />
+	</UI_Select>
+	<UI_Back>
+		<Primary Device="Keyboard" Key="Key_Tab" />
+		<Secondary Device="vJoy" Key="Joy_2" />
+	</UI_Back>
+	<CycleNextPanel>
+		<Primary Device="Keyboard" Key="Key_E" />
+		<Secondary Device="vJoy" Key="Joy_10" />
+	</CycleNextPanel>
+	<CyclePreviousPanel>
+		<Primary Device="Keyboard" Key="Key_Q" />
+		<Secondary Device="vJoy" Key="Joy_9" />
+	</CyclePreviousPanel>
+	<HeadlookDefault Value="1" />
+	<HeadlookMode Value="Bindings_HeadlookModeDirect" />
 	<HeadLookReset>
 		<Primary Device="{NoDevice}" Key="" />
 		<Secondary Device="{NoDevice}" Key="" />
@@ -460,7 +496,7 @@
 		<Secondary Device="{NoDevice}" Key="" />
 	</HeadLookPitchDown>
 	<HeadLookPitchAxisRaw>
-		<Binding Device="vJoy" Key="Joy_RYAxis" />
+		<Binding Device="vJoy" Key="Joy_VAxis" />
 		<Inverted Value="1" />
 		<Deadzone Value="0.00000000" />
 	</HeadLookPitchAxisRaw>
@@ -473,7 +509,7 @@
 		<Secondary Device="{NoDevice}" Key="" />
 	</HeadLookYawRight>
 	<HeadLookYawAxis>
-		<Binding Device="vJoy" Key="Joy_RXAxis" />
+		<Binding Device="vJoy" Key="Joy_UAxis" />
 		<Inverted Value="0" />
 		<Deadzone Value="0.00000000" />
 	</HeadLookYawAxis>
@@ -548,16 +584,16 @@
 		<Deadzone Value="0.00000000" />
 	</CamZoomAxis>
 	<CamZoomIn>
-		<Primary Device="vJoy" Key="Joy_19" />
-		<Secondary Device="Keyboard" Key="Key_Z" />
+		<Primary Device="Keyboard" Key="Key_Z" />
+		<Secondary Device="vJoy" Key="Joy_19" />
 	</CamZoomIn>
 	<CamZoomOut>
-		<Primary Device="vJoy" Key="Joy_17" />
-		<Secondary Device="Keyboard" Key="Key_X" />
+		<Primary Device="Keyboard" Key="Key_X" />
+		<Secondary Device="vJoy" Key="Joy_20" />
 	</CamZoomOut>
 	<CamTranslateZHold>
-		<Primary Device="vJoy" Key="Joy_7" />
+		<Primary Device="vJoy" Key="Joy_3" />
 		<Secondary Device="{NoDevice}" Key="" />
-		<ToggleOn Value="1" />
+		<ToggleOn Value="0" />
 	</CamTranslateZHold>
 </Root>
